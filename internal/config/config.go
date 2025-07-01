@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 type Config struct {
 	Server    ServerConfig              `json:"server"`
 	Database  DatabaseConfig            `json:"database"`
+	Proxy     ProxyConfig               `json:"proxy"`
 	Providers map[string]ProviderConfig `json:"providers"`
 }
 
@@ -20,9 +22,13 @@ type DatabaseConfig struct {
 	Path string `json:"path"`
 }
 
+type ProxyConfig struct {
+	URL string `json:"url"`
+}
+
 type ProviderConfig struct {
 	Enabled      bool   `json:"enabled"`
-	APIKeyEnv    string `json:"api_key_env"`
+	APIKey       string `json:"api_key"`
 	MonthlyLimit int64  `json:"monthly_limit"`
 	RPMLimit     int64  `json:"rpm_limit"`
 	Priority     int    `json:"priority"`
@@ -44,7 +50,11 @@ func Load(path string) (Config, error) {
 		cfg.Server.Address = "127.0.0.1:8080"
 	}
 	if cfg.Database.Path == "" {
-		cfg.Database.Path = "./webrelay.sqlite"
+		path, err := defaultDatabasePath()
+		if err != nil {
+			return Config{}, err
+		}
+		cfg.Database.Path = path
 	}
 	if cfg.Providers == nil {
 		cfg.Providers = map[string]ProviderConfig{}
@@ -53,9 +63,13 @@ func Load(path string) (Config, error) {
 	return cfg, nil
 }
 
-func (p ProviderConfig) APIKey() string {
-	if p.APIKeyEnv == "" {
-		return ""
+func defaultDatabasePath() (string, error) {
+	if xdgDataHome := os.Getenv("XDG_DATA_HOME"); xdgDataHome != "" {
+		return filepath.Join(xdgDataHome, "webrelay", "db.sqlite"), nil
 	}
-	return os.Getenv(p.APIKeyEnv)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve home dir: %w", err)
+	}
+	return filepath.Join(home, ".local", "share", "webrelay", "db.sqlite"), nil
 }
