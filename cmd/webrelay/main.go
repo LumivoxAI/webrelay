@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"os"
@@ -42,6 +43,17 @@ func main() {
 		os.Exit(1)
 	}
 	defer func() { _ = logger.Sync() }()
+
+	cacheStore, err := app.OpenCache(context.Background(), runtimeConfig.Cache)
+	if err != nil {
+		logger.Error("open cache", zap.Error(err))
+		_ = logger.Sync()
+		os.Exit(1)
+	}
+	defer func() { _ = cacheStore.Close() }()
+	cleanupContext, cancelCleanup := context.WithCancel(context.Background())
+	defer cancelCleanup()
+	go cacheStore.StartCleanupWorker(cleanupContext, runtimeConfig.Cache.CleanupInterval.Std(), logger)
 
 	server := app.NewServer(runtimeConfig, logger)
 	logger.Info("starting HTTP server", zap.String("listen", server.Addr))
