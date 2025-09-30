@@ -39,7 +39,7 @@ func Logging(logger *zap.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startedAt := time.Now()
 		next.ServeHTTP(w, r)
-		logger.Info("http request completed",
+		logger.Info("HTTP request completed",
 			zap.String("request_id", RequestIDFromContext(r.Context())),
 			zap.String("operation", r.Method+" "+r.URL.Path),
 			zap.Int64("duration_ms", time.Since(startedAt).Milliseconds()),

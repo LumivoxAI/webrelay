@@ -211,7 +211,7 @@ func (p MarkdownNewConfig) Validate() error {
 	}
 	parsedURL, err := url.Parse(p.BaseURL)
 	if err != nil || parsedURL.Scheme != "https" || parsedURL.Host == "" {
-		return fmt.Errorf("base_url must be an https URL")
+		return fmt.Errorf("base_url must be an HTTPS URL")
 	}
 	if err := validateProviderTiming(p.Timeout, p.MaxAttempts, p.FailureThreshold, p.Cooldown); err != nil {
 		return err

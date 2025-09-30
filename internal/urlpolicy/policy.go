@@ -90,7 +90,7 @@ func (p Policy) Normalize(rawURL string) (*url.URL, error) {
 		return nil, fmt.Errorf("%w: malformed syntax", ErrInvalidURL)
 	}
 	if !strings.EqualFold(parsedURL.Scheme, "http") && !strings.EqualFold(parsedURL.Scheme, "https") {
-		return nil, fmt.Errorf("%w: scheme is not http or https", ErrUnsupportedURL)
+		return nil, fmt.Errorf("%w: scheme is not HTTP or HTTPS", ErrUnsupportedURL)
 	}
 	if parsedURL.Host == "" || parsedURL.Opaque != "" {
 		return nil, fmt.Errorf("%w: host is required", ErrInvalidURL)

@@ -67,7 +67,7 @@ func (s *Store) StartCleanupWorker(ctx context.Context, interval time.Duration, 
 			return
 		case <-ticker.C:
 			if err := s.Cleanup(ctx); err != nil && ctx.Err() == nil {
-				logger.Error("clean cache", zap.Error(err))
+				logger.Error("Clean cache", zap.Error(err))
 			}
 		}
 	}

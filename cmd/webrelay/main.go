@@ -31,14 +31,14 @@ func main() {
 
 	runtimeConfig, err := config.Load(cli.ConfigPath)
 	if err != nil {
-		bootstrapLogger.Error("configuration validation failed", zap.Error(err))
+		bootstrapLogger.Error("Configuration validation failed", zap.Error(err))
 		_ = bootstrapLogger.Sync()
 		os.Exit(1)
 	}
 
 	logger, err := app.NewLogger(runtimeConfig.Logging)
 	if err != nil {
-		bootstrapLogger.Error("create logger", zap.Error(err))
+		bootstrapLogger.Error("Create logger", zap.Error(err))
 		_ = bootstrapLogger.Sync()
 		os.Exit(1)
 	}
@@ -46,7 +46,7 @@ func main() {
 
 	cacheStore, err := app.OpenCache(context.Background(), runtimeConfig.Cache)
 	if err != nil {
-		logger.Error("open cache", zap.Error(err))
+		logger.Error("Open cache", zap.Error(err))
 		_ = logger.Sync()
 		os.Exit(1)
 	}
@@ -56,7 +56,7 @@ func main() {
 	go cacheStore.StartCleanupWorker(cleanupContext, runtimeConfig.Cache.CleanupInterval.Std(), logger)
 
 	server := app.NewServer(runtimeConfig, logger)
-	logger.Info("starting HTTP server", zap.String("listen", server.Addr))
+	logger.Info("Starting HTTP server", zap.String("listen", server.Addr))
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		logger.Error("HTTP server stopped unexpectedly", zap.Error(err))
 		os.Exit(1)
