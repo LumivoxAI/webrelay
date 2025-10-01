@@ -38,12 +38,21 @@ func (c ProvidersConfig) Validate(maxDocumentChars int) map[string]string {
 	return issues
 }
 
-func validateProviderTiming(timeout Duration, attempts, threshold int, cooldown Duration) error {
+func validateProviderTiming(timeout Duration, attempts int, initialBackoff, maxBackoff Duration, threshold int, cooldown Duration) error {
 	if err := validatePositive("timeout", timeout.Std()); err != nil {
 		return err
 	}
 	if attempts < 1 {
 		return fmt.Errorf("max_attempts must be positive")
+	}
+	if err := validatePositive("initial_backoff", initialBackoff.Std()); err != nil {
+		return err
+	}
+	if err := validatePositive("max_backoff", maxBackoff.Std()); err != nil {
+		return err
+	}
+	if maxBackoff.Std() < initialBackoff.Std() {
+		return fmt.Errorf("max_backoff must be no less than initial_backoff")
 	}
 	if threshold < 1 {
 		return fmt.Errorf("failure_threshold must be positive")
@@ -67,6 +76,8 @@ type ExaConfig struct {
 	SearchType           string   `yaml:"search_type"`
 	Timeout              Duration `yaml:"timeout"`
 	MaxAttempts          int      `yaml:"max_attempts"`
+	InitialBackoff       Duration `yaml:"initial_backoff"`
+	MaxBackoff           Duration `yaml:"max_backoff"`
 	FailureThreshold     int      `yaml:"failure_threshold"`
 	Cooldown             Duration `yaml:"cooldown"`
 	QuotaCooldown        Duration `yaml:"quota_cooldown"`
@@ -83,6 +94,8 @@ func DefaultExaConfig() ExaConfig {
 		SearchType:           "auto",
 		Timeout:              Duration(20 * time.Second),
 		MaxAttempts:          2,
+		InitialBackoff:       Duration(250 * time.Millisecond),
+		MaxBackoff:           Duration(2 * time.Second),
 		FailureThreshold:     3,
 		Cooldown:             Duration(5 * time.Minute),
 		QuotaCooldown:        Duration(time.Hour),
@@ -103,7 +116,7 @@ func (p ExaConfig) Validate(maxDocumentChars int) error {
 	if !oneOf(p.SearchType, "instant", "fast", "auto", "deep-lite", "deep", "deep-reasoning") {
 		return fmt.Errorf("search_type is invalid")
 	}
-	if err := validateProviderTiming(p.Timeout, p.MaxAttempts, p.FailureThreshold, p.Cooldown); err != nil {
+	if err := validateProviderTiming(p.Timeout, p.MaxAttempts, p.InitialBackoff, p.MaxBackoff, p.FailureThreshold, p.Cooldown); err != nil {
 		return err
 	}
 	if err := validatePositive("quota_cooldown", p.QuotaCooldown.Std()); err != nil {
@@ -128,6 +141,8 @@ type BraveConfig struct {
 	Proxy            string   `yaml:"proxy"`
 	Timeout          Duration `yaml:"timeout"`
 	MaxAttempts      int      `yaml:"max_attempts"`
+	InitialBackoff   Duration `yaml:"initial_backoff"`
+	MaxBackoff       Duration `yaml:"max_backoff"`
 	FailureThreshold int      `yaml:"failure_threshold"`
 	Cooldown         Duration `yaml:"cooldown"`
 	Country          string   `yaml:"country"`
@@ -143,6 +158,8 @@ func DefaultBraveConfig() BraveConfig {
 		Enabled:          true,
 		Timeout:          Duration(10 * time.Second),
 		MaxAttempts:      2,
+		InitialBackoff:   Duration(250 * time.Millisecond),
+		MaxBackoff:       Duration(2 * time.Second),
 		FailureThreshold: 3,
 		Cooldown:         Duration(5 * time.Minute),
 		Country:          "RU",
@@ -164,7 +181,7 @@ func (p BraveConfig) Validate() error {
 	if !oneOf(p.Safesearch, "off", "moderate", "strict") {
 		return fmt.Errorf("safesearch is invalid")
 	}
-	if err := validateProviderTiming(p.Timeout, p.MaxAttempts, p.FailureThreshold, p.Cooldown); err != nil {
+	if err := validateProviderTiming(p.Timeout, p.MaxAttempts, p.InitialBackoff, p.MaxBackoff, p.FailureThreshold, p.Cooldown); err != nil {
 		return err
 	}
 	if !validProxy(p.Proxy) {
@@ -182,6 +199,8 @@ type MarkdownNewConfig struct {
 	Proxy             string   `yaml:"proxy"`
 	Timeout           Duration `yaml:"timeout"`
 	MaxAttempts       int      `yaml:"max_attempts"`
+	InitialBackoff    Duration `yaml:"initial_backoff"`
+	MaxBackoff        Duration `yaml:"max_backoff"`
 	FailureThreshold  int      `yaml:"failure_threshold"`
 	Cooldown          Duration `yaml:"cooldown"`
 	RateLimitCooldown Duration `yaml:"rate_limit_cooldown"`
@@ -195,6 +214,8 @@ func DefaultMarkdownNewConfig() MarkdownNewConfig {
 		Method:            "auto",
 		Timeout:           Duration(20 * time.Second),
 		MaxAttempts:       1,
+		InitialBackoff:    Duration(250 * time.Millisecond),
+		MaxBackoff:        Duration(2 * time.Second),
 		FailureThreshold:  2,
 		Cooldown:          Duration(2 * time.Minute),
 		RateLimitCooldown: Duration(time.Hour),
@@ -213,7 +234,7 @@ func (p MarkdownNewConfig) Validate() error {
 	if err != nil || parsedURL.Scheme != "https" || parsedURL.Host == "" {
 		return fmt.Errorf("base_url must be an HTTPS URL")
 	}
-	if err := validateProviderTiming(p.Timeout, p.MaxAttempts, p.FailureThreshold, p.Cooldown); err != nil {
+	if err := validateProviderTiming(p.Timeout, p.MaxAttempts, p.InitialBackoff, p.MaxBackoff, p.FailureThreshold, p.Cooldown); err != nil {
 		return err
 	}
 	if err := validatePositive("rate_limit_cooldown", p.RateLimitCooldown.Std()); err != nil {

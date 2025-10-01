@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/suite"
 )
@@ -61,6 +62,17 @@ func (s *ConfigSuite) TestInvalidProxyMakesProviderMisconfigured() {
 	s.Require().NoError(err)
 	s.Equal("proxy is invalid", cfg.ProviderIssue("brave"))
 	s.NotContains(cfg.ProviderIssue("brave"), "proxy-password")
+}
+
+func (s *ConfigSuite) TestRejectsInvalidRetryBackoff() {
+	brave := DefaultBraveConfig()
+	brave.APIKey = "brave-secret"
+	brave.InitialBackoff = Duration(2 * time.Second)
+	brave.MaxBackoff = Duration(time.Second)
+
+	err := brave.Validate()
+
+	s.EqualError(err, "max_backoff must be no less than initial_backoff")
 }
 
 func (s *ConfigSuite) TestInvalidExaKeyUsesBraveAndMarkdownNew() {
