@@ -13,7 +13,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const driverName = "sqlite"
+const DRIVER_NAME = "sqlite"
 
 // Store is a persistent SQLite cache.
 type Store struct {
@@ -25,7 +25,7 @@ type Store struct {
 
 // Open opens the cache database and applies its schema migrations.
 func Open(ctx context.Context, cfg config.CacheConfig) (*Store, error) {
-	db, err := sql.Open(driverName, cfg.Path)
+	db, err := sql.Open(DRIVER_NAME, cfg.Path)
 	if err != nil {
 		return nil, fmt.Errorf("open cache database: %w", err)
 	}

@@ -10,44 +10,44 @@ import (
 type Code string
 
 const (
-	CodeInvalidRequest        Code = "invalid_request"
-	CodeInvalidQuery          Code = "invalid_query"
-	CodeInvalidURL            Code = "invalid_url"
-	CodeUnsupportedURL        Code = "unsupported_url"
-	CodeResultNotFound        Code = "result_not_found"
-	CodeDocumentNotFound      Code = "document_not_found"
-	CodeRangeNotSatisfiable   Code = "range_not_satisfiable"
-	CodeProviderMisconfigured Code = "provider_misconfigured"
-	CodeProviderUnauthorized  Code = "provider_unauthorized"
-	CodeProviderForbidden     Code = "provider_forbidden"
-	CodeQuotaExhausted        Code = "quota_exhausted"
-	CodeRateLimited           Code = "rate_limited"
-	CodeUpstreamTimeout       Code = "upstream_timeout"
-	CodeTemporaryFailure      Code = "temporary_failure"
-	CodeContentUnavailable    Code = "content_unavailable"
-	CodeAllProvidersFailed    Code = "all_providers_failed"
-	CodeServiceUnavailable    Code = "service_unavailable"
-	CodeInternal              Code = "internal_error"
+	CODE_INVALID_REQUEST        Code = "invalid_request"
+	CODE_INVALID_QUERY          Code = "invalid_query"
+	CODE_INVALID_URL            Code = "invalid_url"
+	CODE_UNSUPPORTED_URL        Code = "unsupported_url"
+	CODE_RESULT_NOT_FOUND       Code = "result_not_found"
+	CODE_DOCUMENT_NOT_FOUND     Code = "document_not_found"
+	CODE_RANGE_NOT_SATISFIABLE  Code = "range_not_satisfiable"
+	CODE_PROVIDER_MISCONFIGURED Code = "provider_misconfigured"
+	CODE_PROVIDER_UNAUTHORIZED  Code = "provider_unauthorized"
+	CODE_PROVIDER_FORBIDDEN     Code = "provider_forbidden"
+	CODE_QUOTA_EXHAUSTED        Code = "quota_exhausted"
+	CODE_RATE_LIMITED           Code = "rate_limited"
+	CODE_UPSTREAM_TIMEOUT       Code = "upstream_timeout"
+	CODE_TEMPORARY_FAILURE      Code = "temporary_failure"
+	CODE_CONTENT_UNAVAILABLE    Code = "content_unavailable"
+	CODE_ALL_PROVIDERS_FAILED   Code = "all_providers_failed"
+	CODE_SERVICE_UNAVAILABLE    Code = "service_unavailable"
+	CODE_INTERNAL               Code = "internal_error"
 )
 
 // HTTPStatus returns the contract-defined HTTP status for an API error code.
 func (c Code) HTTPStatus() int {
 	switch c {
-	case CodeInvalidRequest, CodeInvalidQuery, CodeInvalidURL:
+	case CODE_INVALID_REQUEST, CODE_INVALID_QUERY, CODE_INVALID_URL:
 		return http.StatusBadRequest
-	case CodeResultNotFound, CodeDocumentNotFound:
+	case CODE_RESULT_NOT_FOUND, CODE_DOCUMENT_NOT_FOUND:
 		return http.StatusNotFound
-	case CodeRangeNotSatisfiable:
+	case CODE_RANGE_NOT_SATISFIABLE:
 		return http.StatusRequestedRangeNotSatisfiable
-	case CodeUnsupportedURL, CodeContentUnavailable:
+	case CODE_UNSUPPORTED_URL, CODE_CONTENT_UNAVAILABLE:
 		return http.StatusUnprocessableEntity
-	case CodeRateLimited:
+	case CODE_RATE_LIMITED:
 		return http.StatusTooManyRequests
-	case CodeUpstreamTimeout:
+	case CODE_UPSTREAM_TIMEOUT:
 		return http.StatusGatewayTimeout
-	case CodeServiceUnavailable, CodeProviderMisconfigured:
+	case CODE_SERVICE_UNAVAILABLE, CODE_PROVIDER_MISCONFIGURED:
 		return http.StatusServiceUnavailable
-	case CodeInternal:
+	case CODE_INTERNAL:
 		return http.StatusInternalServerError
 	default:
 		return http.StatusBadGateway

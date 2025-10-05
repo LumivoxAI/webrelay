@@ -10,7 +10,7 @@ import (
 func NewHandler(logger *zap.Logger) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		WriteError(w, r, CodeDocumentNotFound, "endpoint not found")
+		WriteError(w, r, CODE_DOCUMENT_NOT_FOUND, "endpoint not found")
 	})
 	return RequestID(Logging(logger, mux))
 }

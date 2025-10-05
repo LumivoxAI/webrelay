@@ -83,11 +83,11 @@ func DefaultLogPath() string {
 	if base == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return filepath.Join(".local", "state", applicationName, "webrelay.log")
+			return filepath.Join(".local", "state", APPLICATION_NAME, "webrelay.log")
 		}
 		base = filepath.Join(home, ".local", "state")
 	}
-	return filepath.Join(base, applicationName, "webrelay.log")
+	return filepath.Join(base, APPLICATION_NAME, "webrelay.log")
 }
 
 func ensureLogFile(path string) error {

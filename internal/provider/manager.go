@@ -28,8 +28,8 @@ func NewManager(initial map[Name]State, policies map[Name]Policy) *Manager {
 	entries := make(map[Name]*entry, len(initial))
 	for name, state := range initial {
 		entry := &entry{state: state, policy: policies[name]}
-		if state != StateAvailable {
-			entry.lastReason = ReasonMisconfigured
+		if state != STATE_AVAILABLE {
+			entry.lastReason = REASON_MISCONFIGURED
 		}
 		entries[name] = entry
 	}
@@ -57,7 +57,7 @@ func (m *Manager) State(name Name) State {
 	defer m.mu.Unlock()
 	entry, ok := m.entries[name]
 	if !ok {
-		return StateDisabled
+		return STATE_DISABLED
 	}
 	m.refresh(entry)
 	return entry.state
@@ -69,10 +69,10 @@ func (m *Manager) Route(ctx context.Context, providers []Name, operation Operati
 	for _, name := range providers {
 		entry, state := m.get(name)
 		if entry == nil {
-			attempts = append(attempts, Attempt{Provider: name, Reason: ReasonMisconfigured})
+			attempts = append(attempts, Attempt{Provider: name, Reason: REASON_MISCONFIGURED})
 			continue
 		}
-		if state != StateAvailable {
+		if state != STATE_AVAILABLE {
 			attempts = append(attempts, Attempt{Provider: name, Reason: entry.lastReason})
 			continue
 		}
@@ -91,7 +91,7 @@ func (m *Manager) get(name Name) (*entry, State) {
 	defer m.mu.Unlock()
 	entry := m.entries[name]
 	if entry == nil {
-		return nil, StateDisabled
+		return nil, STATE_DISABLED
 	}
 	m.refresh(entry)
 	return entry, entry.state
@@ -106,14 +106,14 @@ func (m *Manager) call(ctx context.Context, name Name, entry *entry, operation O
 		}
 		failure := classify(err)
 		m.fail(entry, failure)
-		if !failure.Retryable || entry.policy.MaxAttempts == attempt || m.State(name) != StateAvailable {
+		if !failure.Retryable || entry.policy.MaxAttempts == attempt || m.State(name) != STATE_AVAILABLE {
 			return failure
 		}
 		if err := m.sleep(ctx, backoff(entry.policy, attempt)); err != nil {
-			return &Failure{Reason: ReasonTimeout, Cause: err}
+			return &Failure{Reason: REASON_TIMEOUT, Cause: err}
 		}
 	}
-	return &Failure{Reason: ReasonTemporary}
+	return &Failure{Reason: REASON_TEMPORARY}
 }
 
 func (m *Manager) succeed(entry *entry) {
@@ -128,11 +128,11 @@ func (m *Manager) fail(entry *entry, failure *Failure) {
 	defer m.mu.Unlock()
 	entry.lastReason = failure.Reason
 	switch failure.Reason {
-	case ReasonUnauthorized, ReasonMisconfigured:
-		entry.state = StateMisconfigured
-	case ReasonQuota:
+	case REASON_UNAUTHORIZED, REASON_MISCONFIGURED:
+		entry.state = STATE_MISCONFIGURED
+	case REASON_QUOTA:
 		m.cooldown(entry, entry.policy.QuotaCooldown)
-	case ReasonRateLimited:
+	case REASON_RATE_LIMITED:
 		duration := failure.Cooldown
 		if duration <= 0 {
 			duration = entry.policy.RateLimitCooldown
@@ -149,14 +149,14 @@ func (m *Manager) fail(entry *entry, failure *Failure) {
 }
 
 func (m *Manager) cooldown(entry *entry, duration time.Duration) {
-	entry.state = StateCooldown
+	entry.state = STATE_COOLDOWN
 	entry.cooldownUntil = m.now().Add(duration)
 	entry.failures = 0
 }
 
 func (m *Manager) refresh(entry *entry) {
-	if entry.state == StateCooldown && !m.now().Before(entry.cooldownUntil) {
-		entry.state = StateAvailable
+	if entry.state == STATE_COOLDOWN && !m.now().Before(entry.cooldownUntil) {
+		entry.state = STATE_AVAILABLE
 		entry.cooldownUntil = time.Time{}
 		entry.lastReason = ""
 	}
@@ -167,7 +167,7 @@ func classify(err error) *Failure {
 	if errors.As(err, &failure) {
 		return failure
 	}
-	return &Failure{Reason: ReasonTemporary, Retryable: true, Cause: err}
+	return &Failure{Reason: REASON_TEMPORARY, Retryable: true, Cause: err}
 }
 
 func backoff(policy Policy, retry int) time.Duration {

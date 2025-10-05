@@ -43,7 +43,7 @@ func (s *ConfigSuite) TestLoadUsesXDGConfigPath() {
 	configHome := s.T().TempDir()
 	s.T().Setenv("XDG_CONFIG_HOME", configHome)
 	s.T().Setenv("EXA_API_KEY", "exa-secret")
-	path := filepath.Join(configHome, applicationName, "config.yaml")
+	path := filepath.Join(configHome, APPLICATION_NAME, "config.yaml")
 	s.Require().NoError(os.MkdirAll(filepath.Dir(path), 0o700))
 	s.Require().NoError(os.WriteFile(path, []byte("providers:\n  exa:\n    api_key: ${EXA_API_KEY}\ncache:\n  path: ':memory:'\n"), 0o600))
 
@@ -134,7 +134,7 @@ func (s *ConfigSuite) TestDefaultLoggingUsesXDGStatePath() {
 
 	logging := DefaultLoggingConfig()
 
-	s.Equal(filepath.Join(stateHome, applicationName, "webrelay.log"), logging.File)
+	s.Equal(filepath.Join(stateHome, APPLICATION_NAME, "webrelay.log"), logging.File)
 	s.False(logging.Console)
 	s.True(logging.Rotation.Compress)
 }

@@ -11,33 +11,33 @@ import (
 type Name string
 
 const (
-	Exa         Name = "exa"
-	Brave       Name = "brave"
-	MarkdownNew Name = "markdown_new"
+	EXA          Name = "exa"
+	BRAVE        Name = "brave"
+	MARKDOWN_NEW Name = "markdown_new"
 )
 
 // State describes whether a provider can receive an outbound request.
 type State string
 
 const (
-	StateAvailable     State = "available"
-	StateCooldown      State = "cooldown"
-	StateMisconfigured State = "misconfigured"
-	StateDisabled      State = "disabled"
+	STATE_AVAILABLE     State = "available"
+	STATE_COOLDOWN      State = "cooldown"
+	STATE_MISCONFIGURED State = "misconfigured"
+	STATE_DISABLED      State = "disabled"
 )
 
 // Reason is a safe, stable category for an upstream failure.
 type Reason string
 
 const (
-	ReasonMisconfigured Reason = "provider_misconfigured"
-	ReasonUnauthorized  Reason = "provider_unauthorized"
-	ReasonForbidden     Reason = "provider_forbidden"
-	ReasonQuota         Reason = "quota_exhausted"
-	ReasonRateLimited   Reason = "rate_limited"
-	ReasonTimeout       Reason = "upstream_timeout"
-	ReasonTemporary     Reason = "temporary_failure"
-	ReasonUnavailable   Reason = "content_unavailable"
+	REASON_MISCONFIGURED Reason = "provider_misconfigured"
+	REASON_UNAUTHORIZED  Reason = "provider_unauthorized"
+	REASON_FORBIDDEN     Reason = "provider_forbidden"
+	REASON_QUOTA         Reason = "quota_exhausted"
+	REASON_RATE_LIMITED  Reason = "rate_limited"
+	REASON_TIMEOUT       Reason = "upstream_timeout"
+	REASON_TEMPORARY     Reason = "temporary_failure"
+	REASON_UNAVAILABLE   Reason = "content_unavailable"
 )
 
 // Failure tells the router how an adapter failure may be retried or routed.
@@ -89,7 +89,7 @@ func (e *RouteError) Error() string {
 // exhausted a path with more than one cause.
 func (e *RouteError) Code() Reason {
 	if len(e.Attempts) == 0 {
-		return ReasonTemporary
+		return REASON_TEMPORARY
 	}
 	code := e.Attempts[0].Reason
 	for _, attempt := range e.Attempts[1:] {

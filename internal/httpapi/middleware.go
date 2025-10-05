@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const maxRequestIDLength = 128
+const MAX_REQUEST_ID_LENGTH = 128
 
 var safeRequestID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
@@ -31,7 +31,7 @@ func RequestID(next http.Handler) http.Handler {
 }
 
 func isSafeRequestID(requestID string) bool {
-	return len(requestID) <= maxRequestIDLength && safeRequestID.MatchString(requestID)
+	return len(requestID) <= MAX_REQUEST_ID_LENGTH && safeRequestID.MatchString(requestID)
 }
 
 // Logging emits request metadata without request bodies or response content.

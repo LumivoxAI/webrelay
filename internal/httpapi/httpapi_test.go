@@ -26,7 +26,7 @@ func (s *HTTPAPISuite) TestUsesSafeClientRequestIDInErrorResponse() {
 	s.Equal("client-request_42", response.Header().Get("X-Request-ID"))
 	var body errorResponse
 	s.Require().NoError(json.Unmarshal(response.Body.Bytes(), &body))
-	s.Equal(CodeDocumentNotFound, body.Error.Code)
+	s.Equal(CODE_DOCUMENT_NOT_FOUND, body.Error.Code)
 	s.Equal("client-request_42", body.Error.RequestID)
 }
 
@@ -67,7 +67,7 @@ func (s *HTTPAPISuite) TestDecodeJSONRejectsInvalidBodies() {
 			var target FetchRequest
 			apiError := DecodeJSON(response, request, &target, 1024)
 			s.Require().NotNil(apiError)
-			s.Equal(CodeInvalidRequest, apiError.Code)
+			s.Equal(CODE_INVALID_REQUEST, apiError.Code)
 			s.Equal(testCase.message, apiError.Message)
 		})
 	}
@@ -82,19 +82,19 @@ func (s *HTTPAPISuite) TestDecodeJSONRejectsOversizedBody() {
 	apiError := DecodeJSON(response, request, &target, 8)
 
 	s.Require().NotNil(apiError)
-	s.Equal(CodeInvalidRequest, apiError.Code)
+	s.Equal(CODE_INVALID_REQUEST, apiError.Code)
 	s.Equal("request body is too large", apiError.Message)
 }
 
 func (s *HTTPAPISuite) TestErrorCodeHTTPStatuses() {
 	testCases := map[Code]int{
-		CodeInvalidRequest:      http.StatusBadRequest,
-		CodeDocumentNotFound:    http.StatusNotFound,
-		CodeRangeNotSatisfiable: http.StatusRequestedRangeNotSatisfiable,
-		CodeUnsupportedURL:      http.StatusUnprocessableEntity,
-		CodeAllProvidersFailed:  http.StatusBadGateway,
-		CodeUpstreamTimeout:     http.StatusGatewayTimeout,
-		CodeInternal:            http.StatusInternalServerError,
+		CODE_INVALID_REQUEST:       http.StatusBadRequest,
+		CODE_DOCUMENT_NOT_FOUND:    http.StatusNotFound,
+		CODE_RANGE_NOT_SATISFIABLE: http.StatusRequestedRangeNotSatisfiable,
+		CODE_UNSUPPORTED_URL:       http.StatusUnprocessableEntity,
+		CODE_ALL_PROVIDERS_FAILED:  http.StatusBadGateway,
+		CODE_UPSTREAM_TIMEOUT:      http.StatusGatewayTimeout,
+		CODE_INTERNAL:              http.StatusInternalServerError,
 	}
 
 	for code, expectedStatus := range testCases {

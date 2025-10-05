@@ -9,7 +9,7 @@ import (
 	"regexp"
 )
 
-const applicationName = "web-retrieval-gateway"
+const APPLICATION_NAME = "web-retrieval-gateway"
 
 var environmentReference = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}`)
 
@@ -90,11 +90,11 @@ func DefaultConfigPath() string {
 	if base == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return filepath.Join(".config", applicationName, "config.yaml")
+			return filepath.Join(".config", APPLICATION_NAME, "config.yaml")
 		}
 		base = filepath.Join(home, ".config")
 	}
-	return filepath.Join(base, applicationName, "config.yaml")
+	return filepath.Join(base, APPLICATION_NAME, "config.yaml")
 }
 
 // Load reads, expands, and validates a YAML configuration file.

@@ -62,11 +62,11 @@ func DefaultCachePath() string {
 	if base == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return filepath.Join(".cache", applicationName, "cache.db")
+			return filepath.Join(".cache", APPLICATION_NAME, "cache.db")
 		}
 		base = filepath.Join(home, ".cache")
 	}
-	return filepath.Join(base, applicationName, "cache.db")
+	return filepath.Join(base, APPLICATION_NAME, "cache.db")
 }
 
 func ensureCacheDirectory(path string) error {
