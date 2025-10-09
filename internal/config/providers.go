@@ -60,19 +60,10 @@ func validateProviderTiming(timeout Duration, attempts int, initialBackoff, maxB
 	return validatePositive("cooldown", cooldown.Std())
 }
 
-func validProxy(raw string) bool {
-	if raw == "" {
-		return true
-	}
-	proxyURL, err := url.Parse(raw)
-	return err == nil && (proxyURL.Scheme == "https" || proxyURL.Scheme == "socks5") && proxyURL.Host != ""
-}
-
 // ExaConfig controls both Exa Search and Exa Contents requests.
 type ExaConfig struct {
 	Enabled              bool     `yaml:"enabled"`
 	APIKey               string   `yaml:"api_key"`
-	Proxy                string   `yaml:"proxy"`
 	SearchType           string   `yaml:"search_type"`
 	Timeout              Duration `yaml:"timeout"`
 	MaxAttempts          int      `yaml:"max_attempts"`
@@ -105,7 +96,7 @@ func DefaultExaConfig() ExaConfig {
 	}
 }
 
-// Validate checks Exa settings without returning the API key or proxy URL.
+// Validate checks Exa settings without returning the API key.
 func (p ExaConfig) Validate(maxDocumentChars int) error {
 	if !p.Enabled {
 		return fmt.Errorf("disabled")
@@ -128,9 +119,6 @@ func (p ExaConfig) Validate(maxDocumentChars int) error {
 	if p.MaxAgeHours != nil && *p.MaxAgeHours < -1 {
 		return fmt.Errorf("max_age_hours must be at least -1")
 	}
-	if !validProxy(p.Proxy) {
-		return fmt.Errorf("proxy is invalid")
-	}
 	return nil
 }
 
@@ -138,7 +126,6 @@ func (p ExaConfig) Validate(maxDocumentChars int) error {
 type BraveConfig struct {
 	Enabled          bool     `yaml:"enabled"`
 	APIKey           string   `yaml:"api_key"`
-	Proxy            string   `yaml:"proxy"`
 	Timeout          Duration `yaml:"timeout"`
 	MaxAttempts      int      `yaml:"max_attempts"`
 	InitialBackoff   Duration `yaml:"initial_backoff"`
@@ -170,7 +157,7 @@ func DefaultBraveConfig() BraveConfig {
 	}
 }
 
-// Validate checks Brave settings without returning the API key or proxy URL.
+// Validate checks Brave settings without returning the API key.
 func (p BraveConfig) Validate() error {
 	if !p.Enabled {
 		return fmt.Errorf("disabled")
@@ -184,9 +171,6 @@ func (p BraveConfig) Validate() error {
 	if err := validateProviderTiming(p.Timeout, p.MaxAttempts, p.InitialBackoff, p.MaxBackoff, p.FailureThreshold, p.Cooldown); err != nil {
 		return err
 	}
-	if !validProxy(p.Proxy) {
-		return fmt.Errorf("proxy is invalid")
-	}
 	return nil
 }
 
@@ -196,7 +180,6 @@ type MarkdownNewConfig struct {
 	BaseURL           string   `yaml:"base_url"`
 	Method            string   `yaml:"method"`
 	RetainImages      bool     `yaml:"retain_images"`
-	Proxy             string   `yaml:"proxy"`
 	Timeout           Duration `yaml:"timeout"`
 	MaxAttempts       int      `yaml:"max_attempts"`
 	InitialBackoff    Duration `yaml:"initial_backoff"`
@@ -222,7 +205,7 @@ func DefaultMarkdownNewConfig() MarkdownNewConfig {
 	}
 }
 
-// Validate checks markdown.new settings without returning the proxy URL.
+// Validate checks markdown.new settings.
 func (p MarkdownNewConfig) Validate() error {
 	if !p.Enabled {
 		return fmt.Errorf("disabled")
@@ -239,9 +222,6 @@ func (p MarkdownNewConfig) Validate() error {
 	}
 	if err := validatePositive("rate_limit_cooldown", p.RateLimitCooldown.Std()); err != nil {
 		return err
-	}
-	if !validProxy(p.Proxy) {
-		return fmt.Errorf("proxy is invalid")
 	}
 	return nil
 }

@@ -205,6 +205,25 @@ func (s *ProviderSuite) TestClientsUseSeparateTransportsAndSupportedProxies() {
 	s.Equal("https://proxy.example:8443", proxyURL.String())
 }
 
+func (s *ProviderSuite) TestConfiguredClientsUseCommonProxy() {
+	cfg := config.Default()
+	cfg.Proxy.URL = "https://proxy.example:8443"
+
+	clients, err := NewConfiguredClients(cfg)
+
+	s.Require().NoError(err)
+	exaTransport := clients[EXA].Transport.(*http.Transport)
+	braveTransport := clients[BRAVE].Transport.(*http.Transport)
+	markdownNewTransport := clients[MARKDOWN_NEW].Transport.(*http.Transport)
+	s.NotSame(exaTransport, braveTransport)
+	s.NotSame(braveTransport, markdownNewTransport)
+	for _, transport := range []*http.Transport{exaTransport, braveTransport, markdownNewTransport} {
+		proxyURL, proxyErr := transport.Proxy(&http.Request{URL: &url.URL{Scheme: "https", Host: "api.example"}})
+		s.Require().NoError(proxyErr)
+		s.Equal("https://proxy.example:8443", proxyURL.String())
+	}
+}
+
 func TestProviderSuite(t *testing.T) {
 	suite.Run(t, new(ProviderSuite))
 }

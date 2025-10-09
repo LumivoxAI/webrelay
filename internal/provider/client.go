@@ -42,19 +42,18 @@ func NewHTTPClient(timeout time.Duration, rawProxy string) (*http.Client, error)
 	return &http.Client{Timeout: timeout, Transport: transport}, nil
 }
 
-// NewConfiguredClients creates isolated clients for all providers in a runtime config.
+// NewConfiguredClients creates isolated clients that share the configured outbound proxy.
 func NewConfiguredClients(cfg config.Config) (map[Name]*http.Client, error) {
 	clients := make(map[Name]*http.Client, 3)
 	for _, settings := range []struct {
 		name    Name
 		timeout time.Duration
-		proxy   string
 	}{
-		{name: EXA, timeout: cfg.Providers.Exa.Timeout.Std(), proxy: cfg.Providers.Exa.Proxy},
-		{name: BRAVE, timeout: cfg.Providers.Brave.Timeout.Std(), proxy: cfg.Providers.Brave.Proxy},
-		{name: MARKDOWN_NEW, timeout: cfg.Providers.MarkdownNew.Timeout.Std(), proxy: cfg.Providers.MarkdownNew.Proxy},
+		{name: EXA, timeout: cfg.Providers.Exa.Timeout.Std()},
+		{name: BRAVE, timeout: cfg.Providers.Brave.Timeout.Std()},
+		{name: MARKDOWN_NEW, timeout: cfg.Providers.MarkdownNew.Timeout.Std()},
 	} {
-		client, err := NewHTTPClient(settings.timeout, settings.proxy)
+		client, err := NewHTTPClient(settings.timeout, cfg.Proxy.URL)
 		if err != nil {
 			return nil, err
 		}

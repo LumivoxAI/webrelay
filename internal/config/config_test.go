@@ -35,6 +35,7 @@ func (s *ConfigSuite) TestLoadUsesEnvironmentAndDefaults() {
 	s.Equal("brave-secret", cfg.Providers.Brave.APIKey)
 	s.Equal("127.0.0.1:8090", cfg.Server.Listen)
 	s.Equal(20, cfg.Search.MaxLimit)
+	s.Empty(cfg.Proxy.URL)
 	s.True(cfg.ProviderAvailable("exa"))
 	s.True(cfg.ProviderAvailable("markdown_new"))
 }
@@ -53,15 +54,34 @@ func (s *ConfigSuite) TestLoadUsesXDGConfigPath() {
 	s.Equal("exa-secret", cfg.Providers.Exa.APIKey)
 }
 
-func (s *ConfigSuite) TestInvalidProxyMakesProviderMisconfigured() {
+func (s *ConfigSuite) TestLoadUsesCommonProxy() {
 	s.T().Setenv("BRAVE_API_KEY", "brave-secret")
-	s.writeConfig("providers:\n  exa:\n    api_key: ignored\n  brave:\n    api_key: ${BRAVE_API_KEY}\n    proxy: ftp://user:proxy-password@proxy.example\ncache:\n  path: ':memory:'\n")
+	s.writeConfig("proxy:\n  url: socks5://user:proxy-password@proxy.example:1080\nproviders:\n  brave:\n    api_key: ${BRAVE_API_KEY}\ncache:\n  path: ':memory:'\n")
 
 	cfg, err := Load(s.path)
 
 	s.Require().NoError(err)
-	s.Equal("proxy is invalid", cfg.ProviderIssue("brave"))
-	s.NotContains(cfg.ProviderIssue("brave"), "proxy-password")
+	s.Equal("socks5://user:proxy-password@proxy.example:1080", cfg.Proxy.URL)
+}
+
+func (s *ConfigSuite) TestRejectsInvalidCommonProxy() {
+	s.T().Setenv("BRAVE_API_KEY", "brave-secret")
+	s.writeConfig("proxy:\n  url: ftp://user:proxy-password@proxy.example\nproviders:\n  brave:\n    api_key: ${BRAVE_API_KEY}\ncache:\n  path: ':memory:'\n")
+
+	_, err := Load(s.path)
+
+	s.EqualError(err, "proxy.url is invalid")
+	s.NotContains(err.Error(), "proxy-password")
+}
+
+func (s *ConfigSuite) TestRejectsLegacyProviderProxy() {
+	s.T().Setenv("BRAVE_API_KEY", "brave-secret")
+	s.writeConfig("providers:\n  brave:\n    api_key: ${BRAVE_API_KEY}\n    proxy: https://proxy.example\ncache:\n  path: ':memory:'\n")
+
+	_, err := Load(s.path)
+
+	s.Error(err)
+	s.Contains(err.Error(), "field proxy not found")
 }
 
 func (s *ConfigSuite) TestRejectsInvalidRetryBackoff() {

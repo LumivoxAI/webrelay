@@ -18,6 +18,7 @@ type Config struct {
 	Server    ServerConfig    `yaml:"server"`
 	Search    SearchConfig    `yaml:"search"`
 	Content   ContentConfig   `yaml:"content"`
+	Proxy     ProxyConfig     `yaml:"proxy"`
 	Providers ProvidersConfig `yaml:"providers"`
 	Cache     CacheConfig     `yaml:"cache"`
 	Logging   LoggingConfig   `yaml:"logging"`
@@ -31,6 +32,7 @@ func Default() Config {
 		Server:    DefaultServerConfig(),
 		Search:    DefaultSearchConfig(),
 		Content:   DefaultContentConfig(),
+		Proxy:     DefaultProxyConfig(),
 		Providers: DefaultProvidersConfig(),
 		Cache:     DefaultCacheConfig(),
 		Logging:   DefaultLoggingConfig(),
@@ -46,6 +48,9 @@ func (c *Config) Validate() error {
 		return err
 	}
 	if err := c.Content.Validate(); err != nil {
+		return err
+	}
+	if err := c.Proxy.Validate(); err != nil {
 		return err
 	}
 	if err := c.Cache.Validate(); err != nil {
