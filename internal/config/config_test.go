@@ -95,6 +95,14 @@ func (s *ConfigSuite) TestRejectsInvalidRetryBackoff() {
 	s.EqualError(err, "max_backoff must be no less than initial_backoff")
 }
 
+func (s *ConfigSuite) TestMarkdownNewContentThresholdDefaultsAndValidates() {
+	markdownNew := DefaultMarkdownNewConfig()
+
+	s.Equal(100, markdownNew.MinContentChars)
+	markdownNew.MinContentChars = -1
+	s.EqualError(markdownNew.Validate(), "min_content_chars must not be negative")
+}
+
 func (s *ConfigSuite) TestInvalidExaKeyUsesBraveAndMarkdownNew() {
 	s.T().Setenv("BRAVE_API_KEY", "brave-secret")
 	s.writeConfig("providers:\n  exa:\n    api_key: ''\n  brave:\n    api_key: ${BRAVE_API_KEY}\ncache:\n  path: ':memory:'\n")

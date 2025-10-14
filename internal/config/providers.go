@@ -180,6 +180,7 @@ type MarkdownNewConfig struct {
 	BaseURL           string   `yaml:"base_url"`
 	Method            string   `yaml:"method"`
 	RetainImages      bool     `yaml:"retain_images"`
+	MinContentChars   int      `yaml:"min_content_chars"`
 	Timeout           Duration `yaml:"timeout"`
 	MaxAttempts       int      `yaml:"max_attempts"`
 	InitialBackoff    Duration `yaml:"initial_backoff"`
@@ -195,6 +196,7 @@ func DefaultMarkdownNewConfig() MarkdownNewConfig {
 		Enabled:           true,
 		BaseURL:           "https://markdown.new/",
 		Method:            "auto",
+		MinContentChars:   100,
 		Timeout:           Duration(20 * time.Second),
 		MaxAttempts:       1,
 		InitialBackoff:    Duration(250 * time.Millisecond),
@@ -212,6 +214,9 @@ func (p MarkdownNewConfig) Validate() error {
 	}
 	if !oneOf(p.Method, "auto", "ai", "browser") {
 		return fmt.Errorf("method is invalid")
+	}
+	if p.MinContentChars < 0 {
+		return fmt.Errorf("min_content_chars must not be negative")
 	}
 	parsedURL, err := url.Parse(p.BaseURL)
 	if err != nil || parsedURL.Scheme != "https" || parsedURL.Host == "" {
