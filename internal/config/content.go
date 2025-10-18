@@ -16,7 +16,7 @@ func DefaultContentConfig() ContentConfig {
 		DefaultChunkChars: 12000,
 		MaxChunkChars:     50000,
 		MaxDocumentChars:  500000,
-		Providers:         []string{"markdown_new", "exa"},
+		Providers:         []string{"tinyfish", "markdown_new", "tavily", "exa", "firecrawl"},
 	}
 }
 
@@ -25,5 +25,5 @@ func (c ContentConfig) Validate() error {
 	if c.DefaultChunkChars < 1 || c.MaxChunkChars < c.DefaultChunkChars || c.MaxDocumentChars < c.MaxChunkChars {
 		return fmt.Errorf("content limits must be positive and ordered")
 	}
-	return validateProviderOrder("content.providers", c.Providers, map[string]bool{"exa": true, "markdown_new": true})
+	return validateProviderOrder("content.providers", c.Providers, map[string]bool{"tinyfish": true, "markdown_new": true, "tavily": true, "exa": true, "firecrawl": true})
 }
