@@ -61,32 +61,50 @@ func (c *Config) Validate() error {
 	}
 
 	c.providerIssues = c.Providers.Validate(c.Content.MaxDocumentChars)
-	if !c.hasAvailable(c.Search.Providers) {
+	if !c.hasAvailable(c.Search.Providers, ACTION_SEARCH) {
 		return fmt.Errorf("no configured search provider")
 	}
-	if !c.hasAvailable(c.Content.Providers) {
+	if !c.hasAvailable(c.Content.Providers, ROUTE_CONTENT) {
 		return fmt.Errorf("no configured content provider")
 	}
 	return nil
 }
 
-// ProviderIssue returns the safe reason why a provider cannot be used.
-func (c Config) ProviderIssue(name string) string {
-	return c.providerIssues[name]
+// ProviderActionIssue returns the safe reason why a provider action cannot be used.
+func (c Config) ProviderActionIssue(name, action string) string {
+	return c.providerIssues[name+"/"+action]
 }
 
-// ProviderAvailable reports whether a validated provider can serve requests.
-func (c Config) ProviderAvailable(name string) bool {
-	return c.providerIssues[name] == ""
+// ProviderActionAvailable reports whether a validated provider can serve an action.
+func (c Config) ProviderActionAvailable(name, action string) bool {
+	return c.ProviderActionIssue(name, action) == ""
 }
 
-func (c Config) hasAvailable(providers []string) bool {
+func (c Config) hasAvailable(providers []string, action string) bool {
 	for _, provider := range providers {
-		if c.ProviderAvailable(provider) {
+		if c.ProviderActionAvailable(provider, routeAction(provider, action)) {
 			return true
 		}
 	}
 	return false
+}
+
+func routeAction(provider, route string) string {
+	if route != ROUTE_CONTENT {
+		return route
+	}
+	switch provider {
+	case "tinyfish", "markdown_new":
+		return ACTION_FETCH
+	case "tavily":
+		return ACTION_EXTRACT
+	case "exa":
+		return ACTION_CONTENTS
+	case "firecrawl":
+		return ACTION_SCRAPE
+	default:
+		return route
+	}
 }
 
 // DefaultConfigPath returns the XDG configuration location.

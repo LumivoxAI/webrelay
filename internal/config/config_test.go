@@ -36,8 +36,8 @@ func (s *ConfigSuite) TestLoadUsesEnvironmentAndDefaults() {
 	s.Equal("127.0.0.1:8090", cfg.Server.Listen)
 	s.Equal(20, cfg.Search.MaxLimit)
 	s.Empty(cfg.Proxy.URL)
-	s.True(cfg.ProviderAvailable("exa"))
-	s.True(cfg.ProviderAvailable("markdown_new"))
+	s.True(cfg.ProviderActionAvailable("exa", ACTION_SEARCH))
+	s.True(cfg.ProviderActionAvailable("markdown_new", ACTION_FETCH))
 }
 
 func (s *ConfigSuite) TestLoadUsesXDGConfigPath() {
@@ -87,10 +87,10 @@ func (s *ConfigSuite) TestRejectsLegacyProviderProxy() {
 func (s *ConfigSuite) TestRejectsInvalidRetryBackoff() {
 	brave := DefaultBraveConfig()
 	brave.APIKey = "brave-secret"
-	brave.InitialBackoff = Duration(2 * time.Second)
-	brave.MaxBackoff = Duration(time.Second)
+	brave.Search.InitialBackoff = Duration(2 * time.Second)
+	brave.Search.MaxBackoff = Duration(time.Second)
 
-	err := brave.Validate()
+	err := brave.Search.Validate()
 
 	s.EqualError(err, "max_backoff must be no less than initial_backoff")
 }
@@ -98,9 +98,9 @@ func (s *ConfigSuite) TestRejectsInvalidRetryBackoff() {
 func (s *ConfigSuite) TestMarkdownNewContentThresholdDefaultsAndValidates() {
 	markdownNew := DefaultMarkdownNewConfig()
 
-	s.Equal(100, markdownNew.MinContentChars)
-	markdownNew.MinContentChars = -1
-	s.EqualError(markdownNew.Validate(), "min_content_chars must not be negative")
+	s.Equal(100, markdownNew.Fetch.MinContentChars)
+	markdownNew.Fetch.MinContentChars = -1
+	s.EqualError(markdownNew.Fetch.Validate(), "min_content_chars must not be negative")
 }
 
 func (s *ConfigSuite) TestInvalidExaKeyUsesBraveAndMarkdownNew() {
@@ -110,9 +110,30 @@ func (s *ConfigSuite) TestInvalidExaKeyUsesBraveAndMarkdownNew() {
 	cfg, err := Load(s.path)
 
 	s.Require().NoError(err)
-	s.Equal("api_key is required", cfg.ProviderIssue("exa"))
-	s.True(cfg.ProviderAvailable("brave"))
-	s.True(cfg.ProviderAvailable("markdown_new"))
+	s.Equal("api_key is required", cfg.ProviderActionIssue("exa", ACTION_SEARCH))
+	s.True(cfg.ProviderActionAvailable("brave", ACTION_SEARCH))
+	s.True(cfg.ProviderActionAvailable("markdown_new", ACTION_FETCH))
+}
+
+func (s *ConfigSuite) TestActionValidationDoesNotDisableSiblingAction() {
+	cfg := Default()
+	cfg.Providers.Exa.APIKey = "exa-secret"
+	invalidMaxAge := -2
+	cfg.Providers.Exa.Contents.MaxAgeHours = &invalidMaxAge
+
+	s.Require().NoError(cfg.Validate())
+	s.True(cfg.ProviderActionAvailable("exa", ACTION_SEARCH))
+	s.Equal("max_age_hours must be at least -1", cfg.ProviderActionIssue("exa", ACTION_CONTENTS))
+}
+
+func (s *ConfigSuite) TestRejectsFlatProviderActionFields() {
+	s.T().Setenv("BRAVE_API_KEY", "brave-secret")
+	s.writeConfig("providers:\n  brave:\n    api_key: ${BRAVE_API_KEY}\n    timeout: 10s\ncache:\n  path: ':memory:'\n")
+
+	_, err := Load(s.path)
+
+	s.Error(err)
+	s.Contains(err.Error(), "field timeout not found")
 }
 
 func (s *ConfigSuite) TestRejectsInvalidCriticalSettings() {

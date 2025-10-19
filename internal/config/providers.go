@@ -13,6 +13,7 @@ const (
 	ACTION_EXTRACT  = "extract"
 	ACTION_CONTENTS = "contents"
 	ACTION_SCRAPE   = "scrape"
+	ROUTE_CONTENT   = "content"
 )
 
 // ProvidersConfig contains connection settings shared by provider actions.
