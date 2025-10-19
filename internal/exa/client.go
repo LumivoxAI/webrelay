@@ -52,19 +52,19 @@ func NewAtURL(rawBaseURL string, settings config.ExaConfig, client *http.Client,
 func (c *Client) Search(ctx context.Context, request SearchRequest) (SearchResponse, error) {
 	payload := searchPayload{
 		Query:              request.Query,
-		Type:               c.config.SearchType,
+		Type:               c.config.Search.SearchType,
 		NumResults:         request.Limit,
 		IncludeDomains:     request.IncludeDomains,
 		ExcludeDomains:     request.ExcludeDomains,
 		StartPublishedDate: formatTime(request.PublishedAfter),
 		EndPublishedDate:   formatTime(request.PublishedBefore),
 	}
-	if c.config.SearchWithText || c.config.SearchWithHighlights {
+	if c.config.Search.SearchWithText || c.config.Search.SearchWithHighlights {
 		payload.Contents = &searchContentsPayload{}
-		if c.config.SearchWithText {
-			payload.Contents.Text = &textPayload{MaxCharacters: c.config.MaxContentCharacters}
+		if c.config.Search.SearchWithText {
+			payload.Contents.Text = &textPayload{MaxCharacters: c.config.Search.MaxContentCharacters}
 		}
-		if c.config.SearchWithHighlights {
+		if c.config.Search.SearchWithHighlights {
 			payload.Contents.Highlights = true
 		}
 	}
@@ -96,8 +96,8 @@ func (c *Client) Search(ctx context.Context, request SearchRequest) (SearchRespo
 func (c *Client) Contents(ctx context.Context, request ContentRequest) (ContentResponse, error) {
 	payload := contentsRequestPayload{
 		IDs:         []string{request.URL},
-		Text:        textPayload{MaxCharacters: c.config.MaxContentCharacters},
-		MaxAgeHours: c.config.MaxAgeHours,
+		Text:        textPayload{MaxCharacters: c.config.Contents.MaxContentCharacters},
+		MaxAgeHours: c.config.Contents.MaxAgeHours,
 	}
 	var upstream contentsResponsePayload
 	if err := c.call(ctx, http.MethodPost, "contents", payload, &upstream); err != nil {

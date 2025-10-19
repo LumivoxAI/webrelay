@@ -52,8 +52,8 @@ func NewAtURL(rawBaseURL string, settings config.MarkdownNewConfig, client *http
 func (c *Client) Fetch(ctx context.Context, request ContentRequest) (ContentResponse, error) {
 	payload := requestPayload{
 		URL:          request.URL,
-		Method:       c.config.Method,
-		RetainImages: c.config.RetainImages,
+		Method:       c.config.Fetch.Method,
+		RetainImages: c.config.Fetch.RetainImages,
 	}
 	body, err := jsonBody(payload)
 	if err != nil {
@@ -88,13 +88,13 @@ func (c *Client) Fetch(ctx context.Context, request ContentRequest) (ContentResp
 		return ContentResponse{}, &provider.Failure{
 			Reason:    provider.REASON_RATE_LIMITED,
 			Retryable: true,
-			Cooldown:  c.config.RateLimitCooldown.Std(),
+			Cooldown:  c.config.Fetch.RateLimitCooldown.Std(),
 		}
 	}
 
 	content := string(responseBody)
 	sourceMediaType := mediaType(response.Header.Get("Content-Type"))
-	if (sourceMediaType != nil && strings.EqualFold(*sourceMediaType, "application/json")) || unusable(content, c.config.MinContentChars) {
+	if (sourceMediaType != nil && strings.EqualFold(*sourceMediaType, "application/json")) || unusable(content, c.config.Fetch.MinContentChars) {
 		return ContentResponse{}, &provider.Failure{Reason: provider.REASON_UNAVAILABLE, Cause: fmt.Errorf("markdown.new returned unusable content")}
 	}
 	c.logger.Debug("markdown.new upstream response", zap.Int("upstream_status", response.StatusCode))
@@ -116,7 +116,7 @@ func (c *Client) classifyHTTPError(status int) error {
 	case http.StatusTooManyRequests:
 		failure.Reason = provider.REASON_RATE_LIMITED
 		failure.Retryable = true
-		failure.Cooldown = c.config.RateLimitCooldown.Std()
+		failure.Cooldown = c.config.Fetch.RateLimitCooldown.Std()
 	case http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
 		failure.Reason = provider.REASON_TEMPORARY
 		failure.Retryable = true

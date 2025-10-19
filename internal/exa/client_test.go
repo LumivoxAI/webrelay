@@ -72,7 +72,7 @@ func (s *ClientSuite) TestSearchSendsExpectedPayloadAndSeparatesEmbeddedContent(
 	s.Equal("2026-01-01T00:00:00Z", received["startPublishedDate"])
 	s.Equal("2026-08-02T00:00:00Z", received["endPublishedDate"])
 	contents := received["contents"].(map[string]any)
-	s.Equal(float64(s.settings.MaxContentCharacters), contents["text"].(map[string]any)["maxCharacters"])
+	s.Equal(float64(s.settings.Search.MaxContentCharacters), contents["text"].(map[string]any)["maxCharacters"])
 	s.True(contents["highlights"].(bool))
 	s.Require().Len(response.Results, 1)
 	result := response.Results[0]
@@ -98,7 +98,7 @@ func (s *ClientSuite) TestSearchUsesTextAsSnippetWithoutHighlights() {
 
 func (s *ClientSuite) TestContentsSendsTopLevelTextAndAcceptsSuccessStatus() {
 	maxAgeHours := 24
-	s.settings.MaxAgeHours = &maxAgeHours
+	s.settings.Contents.MaxAgeHours = &maxAgeHours
 	var received map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		s.Equal("/contents", request.URL.Path)
@@ -116,7 +116,7 @@ func (s *ClientSuite) TestContentsSendsTopLevelTextAndAcceptsSuccessStatus() {
 
 	s.Require().NoError(err)
 	s.Equal([]any{"https://example.com"}, received["ids"])
-	s.Equal(float64(s.settings.MaxContentCharacters), received["text"].(map[string]any)["maxCharacters"])
+	s.Equal(float64(s.settings.Contents.MaxContentCharacters), received["text"].(map[string]any)["maxCharacters"])
 	s.Equal(float64(24), received["maxAgeHours"])
 	s.NotContains(received, "contents")
 	s.Equal("# Content", response.Content)

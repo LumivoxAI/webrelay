@@ -112,7 +112,7 @@ func (s *ClientSuite) TestFetchAppliesCooldownWhenQuotaHeaderIsZero() {
 	s.Require().True(errors.As(err, &failure))
 	s.Equal(provider.REASON_RATE_LIMITED, failure.Reason)
 	s.True(failure.Retryable)
-	s.Equal(s.settings.RateLimitCooldown.Std(), failure.Cooldown)
+	s.Equal(s.settings.Fetch.RateLimitCooldown.Std(), failure.Cooldown)
 }
 
 func (s *ClientSuite) TestHTTPFailuresAreClassified() {
@@ -140,7 +140,7 @@ func (s *ClientSuite) TestHTTPFailuresAreClassified() {
 		s.Equal(test.reason, failure.Reason, "status %d", test.status)
 		s.Equal(test.retryable, failure.Retryable, "status %d", test.status)
 		if test.status == http.StatusTooManyRequests {
-			s.Equal(s.settings.RateLimitCooldown.Std(), failure.Cooldown)
+			s.Equal(s.settings.Fetch.RateLimitCooldown.Std(), failure.Cooldown)
 		}
 	}
 }
