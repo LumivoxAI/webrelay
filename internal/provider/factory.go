@@ -1,52 +1,60 @@
 package provider
 
-import "github.com/LumivoxAI/webrelay/internal/config"
+import (
+	"github.com/LumivoxAI/webrelay/internal/config"
+	"go.uber.org/zap"
+)
 
-// NewConfiguredManager creates provider state from a validated runtime config.
-func NewConfiguredManager(cfg config.Config) *Manager {
-	initial := map[Name]State{
-		EXA:          configuredState(cfg, EXA, cfg.Providers.Exa.Enabled),
-		BRAVE:        configuredState(cfg, BRAVE, cfg.Providers.Brave.Enabled),
-		MARKDOWN_NEW: configuredState(cfg, MARKDOWN_NEW, cfg.Providers.MarkdownNew.Enabled),
+// NewConfiguredManager creates independent state for every provider action.
+func NewConfiguredManager(cfg config.Config, logger *zap.Logger) *Manager {
+	settings := []struct {
+		key               Key
+		enabled           bool
+		config            config.ActionConfig
+		rateLimitCooldown config.Duration
+	}{
+		{key: Key{Provider: EXA, Action: SEARCH}, enabled: cfg.Providers.Exa.Enabled && cfg.Providers.Exa.Search.Enabled, config: cfg.Providers.Exa.Search.ActionConfig},
+		{key: Key{Provider: EXA, Action: CONTENTS}, enabled: cfg.Providers.Exa.Enabled && cfg.Providers.Exa.Contents.Enabled, config: cfg.Providers.Exa.Contents.ActionConfig},
+		{key: Key{Provider: BRAVE, Action: SEARCH}, enabled: cfg.Providers.Brave.Enabled && cfg.Providers.Brave.Search.Enabled, config: cfg.Providers.Brave.Search.ActionConfig},
+		{key: Key{Provider: MARKDOWN_NEW, Action: FETCH}, enabled: cfg.Providers.MarkdownNew.Enabled && cfg.Providers.MarkdownNew.Fetch.Enabled, config: cfg.Providers.MarkdownNew.Fetch.ActionConfig, rateLimitCooldown: cfg.Providers.MarkdownNew.Fetch.RateLimitCooldown},
+		{key: Key{Provider: TINYFISH, Action: SEARCH}, enabled: cfg.Providers.TinyFish.Enabled && cfg.Providers.TinyFish.Search.Enabled, config: cfg.Providers.TinyFish.Search},
+		{key: Key{Provider: TINYFISH, Action: FETCH}, enabled: cfg.Providers.TinyFish.Enabled && cfg.Providers.TinyFish.Fetch.Enabled, config: cfg.Providers.TinyFish.Fetch},
+		{key: Key{Provider: TAVILY, Action: SEARCH}, enabled: cfg.Providers.Tavily.Enabled && cfg.Providers.Tavily.Search.Enabled, config: cfg.Providers.Tavily.Search},
+		{key: Key{Provider: TAVILY, Action: EXTRACT}, enabled: cfg.Providers.Tavily.Enabled && cfg.Providers.Tavily.Extract.Enabled, config: cfg.Providers.Tavily.Extract},
+		{key: Key{Provider: FIRECRAWL, Action: SEARCH}, enabled: cfg.Providers.Firecrawl.Enabled && cfg.Providers.Firecrawl.Search.Enabled, config: cfg.Providers.Firecrawl.Search},
+		{key: Key{Provider: FIRECRAWL, Action: SCRAPE}, enabled: cfg.Providers.Firecrawl.Enabled && cfg.Providers.Firecrawl.Scrape.Enabled, config: cfg.Providers.Firecrawl.Scrape},
 	}
-	policies := map[Name]Policy{
-		EXA: {
-			MaxAttempts:       cfg.Providers.Exa.MaxAttempts,
-			InitialBackoff:    cfg.Providers.Exa.InitialBackoff.Std(),
-			MaxBackoff:        cfg.Providers.Exa.MaxBackoff.Std(),
-			FailureThreshold:  cfg.Providers.Exa.FailureThreshold,
-			Cooldown:          cfg.Providers.Exa.Cooldown.Std(),
-			QuotaCooldown:     cfg.Providers.Exa.QuotaCooldown.Std(),
-			RateLimitCooldown: cfg.Providers.Exa.Cooldown.Std(),
-		},
-		BRAVE: {
-			MaxAttempts:       cfg.Providers.Brave.MaxAttempts,
-			InitialBackoff:    cfg.Providers.Brave.InitialBackoff.Std(),
-			MaxBackoff:        cfg.Providers.Brave.MaxBackoff.Std(),
-			FailureThreshold:  cfg.Providers.Brave.FailureThreshold,
-			Cooldown:          cfg.Providers.Brave.Cooldown.Std(),
-			QuotaCooldown:     cfg.Providers.Brave.Cooldown.Std(),
-			RateLimitCooldown: cfg.Providers.Brave.Cooldown.Std(),
-		},
-		MARKDOWN_NEW: {
-			MaxAttempts:       cfg.Providers.MarkdownNew.MaxAttempts,
-			InitialBackoff:    cfg.Providers.MarkdownNew.InitialBackoff.Std(),
-			MaxBackoff:        cfg.Providers.MarkdownNew.MaxBackoff.Std(),
-			FailureThreshold:  cfg.Providers.MarkdownNew.FailureThreshold,
-			Cooldown:          cfg.Providers.MarkdownNew.Cooldown.Std(),
-			QuotaCooldown:     cfg.Providers.MarkdownNew.RateLimitCooldown.Std(),
-			RateLimitCooldown: cfg.Providers.MarkdownNew.RateLimitCooldown.Std(),
-		},
+	initial := make(map[Key]State, len(settings))
+	policies := make(map[Key]Policy, len(settings))
+	for _, setting := range settings {
+		initial[setting.key] = configuredState(cfg, setting.key, setting.enabled)
+		policies[setting.key] = policy(setting.config, setting.rateLimitCooldown)
 	}
-	return NewManager(initial, policies)
+	return NewManagerWithMetrics(initial, policies, NewMetrics(logger))
 }
 
-func configuredState(cfg config.Config, name Name, enabled bool) State {
+func configuredState(cfg config.Config, key Key, enabled bool) State {
 	if !enabled {
 		return STATE_DISABLED
 	}
-	if !cfg.ProviderAvailable(string(name)) {
+	if !cfg.ProviderActionAvailable(string(key.Provider), string(key.Action)) {
 		return STATE_MISCONFIGURED
 	}
 	return STATE_AVAILABLE
+}
+
+func policy(settings config.ActionConfig, rateLimitCooldown config.Duration) Policy {
+	limitCooldown := settings.Cooldown.Std()
+	if rateLimitCooldown.Std() > 0 {
+		limitCooldown = rateLimitCooldown.Std()
+	}
+	return Policy{
+		MaxAttempts:       settings.MaxAttempts,
+		InitialBackoff:    settings.InitialBackoff.Std(),
+		MaxBackoff:        settings.MaxBackoff.Std(),
+		FailureThreshold:  settings.FailureThreshold,
+		Cooldown:          settings.Cooldown.Std(),
+		QuotaCooldown:     settings.QuotaCooldown.Std(),
+		RateLimitCooldown: limitCooldown,
+	}
 }

@@ -43,21 +43,28 @@ func NewHTTPClient(timeout time.Duration, rawProxy string) (*http.Client, error)
 }
 
 // NewConfiguredClients creates isolated clients that share the configured outbound proxy.
-func NewConfiguredClients(cfg config.Config) (map[Name]*http.Client, error) {
-	clients := make(map[Name]*http.Client, 3)
+func NewConfiguredClients(cfg config.Config) (map[Key]*http.Client, error) {
+	clients := make(map[Key]*http.Client, 9)
 	for _, settings := range []struct {
-		name    Name
+		key     Key
 		timeout time.Duration
 	}{
-		{name: EXA, timeout: cfg.Providers.Exa.Timeout.Std()},
-		{name: BRAVE, timeout: cfg.Providers.Brave.Timeout.Std()},
-		{name: MARKDOWN_NEW, timeout: cfg.Providers.MarkdownNew.Timeout.Std()},
+		{key: Key{Provider: EXA, Action: SEARCH}, timeout: cfg.Providers.Exa.Search.Timeout.Std()},
+		{key: Key{Provider: EXA, Action: CONTENTS}, timeout: cfg.Providers.Exa.Contents.Timeout.Std()},
+		{key: Key{Provider: BRAVE, Action: SEARCH}, timeout: cfg.Providers.Brave.Search.Timeout.Std()},
+		{key: Key{Provider: MARKDOWN_NEW, Action: FETCH}, timeout: cfg.Providers.MarkdownNew.Fetch.Timeout.Std()},
+		{key: Key{Provider: TINYFISH, Action: SEARCH}, timeout: cfg.Providers.TinyFish.Search.Timeout.Std()},
+		{key: Key{Provider: TINYFISH, Action: FETCH}, timeout: cfg.Providers.TinyFish.Fetch.Timeout.Std()},
+		{key: Key{Provider: TAVILY, Action: SEARCH}, timeout: cfg.Providers.Tavily.Search.Timeout.Std()},
+		{key: Key{Provider: TAVILY, Action: EXTRACT}, timeout: cfg.Providers.Tavily.Extract.Timeout.Std()},
+		{key: Key{Provider: FIRECRAWL, Action: SEARCH}, timeout: cfg.Providers.Firecrawl.Search.Timeout.Std()},
+		{key: Key{Provider: FIRECRAWL, Action: SCRAPE}, timeout: cfg.Providers.Firecrawl.Scrape.Timeout.Std()},
 	} {
 		client, err := NewHTTPClient(settings.timeout, cfg.Proxy.URL)
 		if err != nil {
 			return nil, err
 		}
-		clients[settings.name] = client
+		clients[settings.key] = client
 	}
 	return clients, nil
 }

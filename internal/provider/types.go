@@ -14,7 +14,29 @@ const (
 	EXA          Name = "exa"
 	BRAVE        Name = "brave"
 	MARKDOWN_NEW Name = "markdown_new"
+	TINYFISH     Name = "tinyfish"
+	TAVILY       Name = "tavily"
+	FIRECRAWL    Name = "firecrawl"
 )
+
+// Action identifies an independently configured provider operation.
+type Action string
+
+const (
+	SEARCH   Action = "search"
+	FETCH    Action = "fetch"
+	EXTRACT  Action = "extract"
+	CONTENTS Action = "contents"
+	SCRAPE   Action = "scrape"
+)
+
+// Key uniquely identifies routing state and diagnostics for a provider action.
+type Key struct {
+	Provider Name
+	Action   Action
+}
+
+func (k Key) String() string { return string(k.Provider) + "/" + string(k.Action) }
 
 // State describes whether a provider can receive an outbound request.
 type State string

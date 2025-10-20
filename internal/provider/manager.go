@@ -18,27 +18,40 @@ type entry struct {
 // Manager holds independent mutable state for each provider.
 type Manager struct {
 	mu      sync.Mutex
-	entries map[Name]*entry
+	entries map[Key]*entry
+	metrics *Metrics
 	now     func() time.Time
 	sleep   func(context.Context, time.Duration) error
 }
 
 // NewManager creates a manager with the supplied initial state and policies.
-func NewManager(initial map[Name]State, policies map[Name]Policy) *Manager {
-	entries := make(map[Name]*entry, len(initial))
-	for name, state := range initial {
-		entry := &entry{state: state, policy: policies[name]}
+func NewManager(initial map[Key]State, policies map[Key]Policy) *Manager {
+	return NewManagerWithMetrics(initial, policies, NewMetrics(nil))
+}
+
+// NewManagerWithMetrics creates a manager with an explicit diagnostics registry.
+func NewManagerWithMetrics(initial map[Key]State, policies map[Key]Policy, metrics *Metrics) *Manager {
+	entries := make(map[Key]*entry, len(initial))
+	for key, state := range initial {
+		entry := &entry{state: state, policy: policies[key]}
 		if state != STATE_AVAILABLE {
 			entry.lastReason = REASON_MISCONFIGURED
 		}
-		entries[name] = entry
+		entries[key] = entry
+	}
+	if metrics == nil {
+		metrics = NewMetrics(nil)
 	}
 	return &Manager{
 		entries: entries,
+		metrics: metrics,
 		now:     time.Now,
 		sleep:   sleep,
 	}
 }
+
+// Metrics returns the manager's action-scoped diagnostics registry.
+func (m *Manager) Metrics() *Metrics { return m.metrics }
 
 // Policy is the retry and cooldown configuration for one provider.
 type Policy struct {
@@ -52,10 +65,10 @@ type Policy struct {
 }
 
 // State returns a provider's current state, expiring elapsed cooldowns.
-func (m *Manager) State(name Name) State {
+func (m *Manager) State(key Key) State {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	entry, ok := m.entries[name]
+	entry, ok := m.entries[key]
 	if !ok {
 		return STATE_DISABLED
 	}
@@ -64,10 +77,12 @@ func (m *Manager) State(name Name) State {
 }
 
 // Route invokes providers in order until one operation succeeds.
-func (m *Manager) Route(ctx context.Context, providers []Name, operation Operation) (Result, error) {
+func (m *Manager) Route(ctx context.Context, action Action, providers []Name, operation Operation) (Result, error) {
 	attempts := make([]Attempt, 0, len(providers))
+	var fallbackFrom *Key
 	for _, name := range providers {
-		entry, state := m.get(name)
+		key := Key{Provider: name, Action: action}
+		entry, state := m.get(key)
 		if entry == nil {
 			attempts = append(attempts, Attempt{Provider: name, Reason: REASON_MISCONFIGURED})
 			continue
@@ -76,20 +91,26 @@ func (m *Manager) Route(ctx context.Context, providers []Name, operation Operati
 			attempts = append(attempts, Attempt{Provider: name, Reason: entry.lastReason})
 			continue
 		}
+		if fallbackFrom != nil {
+			m.metrics.RecordFallback(*fallbackFrom, key)
+			fallbackFrom = nil
+		}
 
-		failure := m.call(ctx, name, entry, operation)
+		failure := m.call(ctx, key, entry, operation)
 		if failure == nil {
 			return Result{Provider: name, Attempts: attempts}, nil
 		}
 		attempts = append(attempts, Attempt{Provider: name, Reason: failure.Reason})
+		failedKey := key
+		fallbackFrom = &failedKey
 	}
 	return Result{}, &RouteError{Attempts: attempts}
 }
 
-func (m *Manager) get(name Name) (*entry, State) {
+func (m *Manager) get(key Key) (*entry, State) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	entry := m.entries[name]
+	entry := m.entries[key]
 	if entry == nil {
 		return nil, STATE_DISABLED
 	}
@@ -97,16 +118,20 @@ func (m *Manager) get(name Name) (*entry, State) {
 	return entry, entry.state
 }
 
-func (m *Manager) call(ctx context.Context, name Name, entry *entry, operation Operation) *Failure {
+func (m *Manager) call(ctx context.Context, key Key, entry *entry, operation Operation) *Failure {
 	for attempt := 1; attempt <= entry.policy.MaxAttempts; attempt++ {
-		err := operation(ctx, name)
+		startedAt := m.now()
+		err := operation(ctx, key.Provider)
+		latency := m.now().Sub(startedAt)
 		if err == nil {
 			m.succeed(entry)
+			m.metrics.RecordAttempt(key, latency, nil)
 			return nil
 		}
 		failure := classify(err)
+		m.metrics.RecordAttempt(key, latency, failure)
 		m.fail(entry, failure)
-		if !failure.Retryable || entry.policy.MaxAttempts == attempt || m.State(name) != STATE_AVAILABLE {
+		if !failure.Retryable || entry.policy.MaxAttempts == attempt || m.State(key) != STATE_AVAILABLE {
 			return failure
 		}
 		if err := m.sleep(ctx, backoff(entry.policy, attempt)); err != nil {
