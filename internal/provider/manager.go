@@ -101,6 +101,9 @@ func (m *Manager) Route(ctx context.Context, action Action, providers []Name, op
 			return Result{Provider: name, Attempts: attempts}, nil
 		}
 		attempts = append(attempts, Attempt{Provider: name, Reason: failure.Reason})
+		if failure.Terminal {
+			return Result{}, &RouteError{Attempts: attempts}
+		}
 		failedKey := key
 		fallbackFrom = &failedKey
 	}

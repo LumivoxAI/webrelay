@@ -221,12 +221,41 @@ func (p MarkdownNewFetchConfig) Validate() error {
 	return validatePositive("rate_limit_cooldown", p.RateLimitCooldown.Std())
 }
 
-// TinyFishConfig reserves independent settings for its future Search and Fetch clients.
 type TinyFishConfig struct {
-	Enabled bool         `yaml:"enabled"`
-	APIKey  string       `yaml:"api_key"`
-	Search  ActionConfig `yaml:"search"`
-	Fetch   ActionConfig `yaml:"fetch"`
+	Enabled bool                 `yaml:"enabled"`
+	APIKey  string               `yaml:"api_key"`
+	Search  TinyFishSearchConfig `yaml:"search"`
+	Fetch   TinyFishFetchConfig  `yaml:"fetch"`
+}
+
+type TinyFishSearchConfig struct {
+	ActionConfig `yaml:",inline"`
+	Location     string `yaml:"location"`
+	Language     string `yaml:"language"`
+	DomainType   string `yaml:"domain_type"`
+}
+
+type TinyFishFetchConfig struct {
+	ActionConfig  `yaml:",inline"`
+	Format        string `yaml:"format"`
+	UseGatewayTTL bool   `yaml:"use_gateway_ttl"`
+}
+
+func (p TinyFishSearchConfig) Validate() error {
+	if !oneOf(p.DomainType, "web", "news", "research_paper") {
+		return fmt.Errorf("domain_type is invalid")
+	}
+	return p.ActionConfig.Validate()
+}
+
+func (p TinyFishFetchConfig) Validate() error {
+	if p.Format != "markdown" {
+		return fmt.Errorf("format must be markdown")
+	}
+	if p.Timeout.Std() > 110*time.Second {
+		return fmt.Errorf("timeout must not exceed 110s")
+	}
+	return p.ActionConfig.Validate()
 }
 
 // TavilyConfig reserves independent settings for its future Search and Extract clients.
@@ -248,8 +277,16 @@ type FirecrawlConfig struct {
 func DefaultTinyFishConfig() TinyFishConfig {
 	return TinyFishConfig{
 		Enabled: true,
-		Search:  DefaultActionConfig(10*time.Second, 2, 3, 5*time.Minute),
-		Fetch:   DefaultActionConfig(20*time.Second, 1, 2, 2*time.Minute),
+		Search: TinyFishSearchConfig{
+			ActionConfig: DefaultActionConfig(10*time.Second, 2, 3, 5*time.Minute),
+			Language:     "en",
+			DomainType:   "web",
+		},
+		Fetch: TinyFishFetchConfig{
+			ActionConfig:  DefaultActionConfig(20*time.Second, 1, 2, 2*time.Minute),
+			Format:        "markdown",
+			UseGatewayTTL: true,
+		},
 	}
 }
 func DefaultTavilyConfig() TavilyConfig {
@@ -272,7 +309,8 @@ func (c ProvidersConfig) Validate(maxDocumentChars int) map[string]string {
 	c.validateExa(issues, maxDocumentChars)
 	c.validateBrave(issues)
 	c.validateMarkdownNew(issues)
-	c.validateKeyActions(issues, "tinyfish", c.TinyFish.Enabled, c.TinyFish.APIKey, map[string]ActionConfig{ACTION_SEARCH: c.TinyFish.Search, ACTION_FETCH: c.TinyFish.Fetch})
+	c.validateKeyAction(issues, "tinyfish", ACTION_SEARCH, c.TinyFish.Enabled, c.TinyFish.APIKey, c.TinyFish.Search.Enabled, c.TinyFish.Search.Validate())
+	c.validateKeyAction(issues, "tinyfish", ACTION_FETCH, c.TinyFish.Enabled, c.TinyFish.APIKey, c.TinyFish.Fetch.Enabled, c.TinyFish.Fetch.Validate())
 	c.validateKeyActions(issues, "tavily", c.Tavily.Enabled, c.Tavily.APIKey, map[string]ActionConfig{ACTION_SEARCH: c.Tavily.Search, ACTION_EXTRACT: c.Tavily.Extract})
 	c.validateKeyActions(issues, "firecrawl", c.Firecrawl.Enabled, c.Firecrawl.APIKey, map[string]ActionConfig{ACTION_SEARCH: c.Firecrawl.Search, ACTION_SCRAPE: c.Firecrawl.Scrape})
 	return issues

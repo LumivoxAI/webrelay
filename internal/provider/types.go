@@ -67,6 +67,7 @@ const (
 type Failure struct {
 	Reason    Reason
 	Retryable bool
+	Terminal  bool
 	Cooldown  time.Duration
 	Cause     error
 }

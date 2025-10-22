@@ -95,6 +95,26 @@ func (s *ProviderSuite) TestNonRetryableFailureFallsBack() {
 	s.Empty(s.sleeps)
 }
 
+func (s *ProviderSuite) TestTerminalFailureStopsFallback() {
+	policy := s.policy()
+	manager := s.manager(
+		map[Key]State{key(TINYFISH, FETCH): STATE_AVAILABLE, key(EXA, FETCH): STATE_AVAILABLE},
+		map[Key]Policy{key(TINYFISH, FETCH): policy, key(EXA, FETCH): policy},
+	)
+	calls := make(map[Name]int)
+
+	_, err := manager.Route(context.Background(), FETCH, []Name{TINYFISH, EXA}, func(_ context.Context, name Name) error {
+		calls[name]++
+		return &Failure{Reason: REASON_UNAVAILABLE, Terminal: true}
+	})
+
+	var routeError *RouteError
+	s.Require().True(errors.As(err, &routeError))
+	s.Equal([]Attempt{{Provider: TINYFISH, Reason: REASON_UNAVAILABLE}}, routeError.Attempts)
+	s.Equal(1, calls[TINYFISH])
+	s.Zero(calls[EXA])
+}
+
 func (s *ProviderSuite) TestCooldownSkipsProviderAndExpires() {
 	policy := s.policy()
 	policy.FailureThreshold = 1
