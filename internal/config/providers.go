@@ -258,12 +258,50 @@ func (p TinyFishFetchConfig) Validate() error {
 	return p.ActionConfig.Validate()
 }
 
-// TavilyConfig reserves independent settings for its future Search and Extract clients.
 type TavilyConfig struct {
-	Enabled bool         `yaml:"enabled"`
-	APIKey  string       `yaml:"api_key"`
-	Search  ActionConfig `yaml:"search"`
-	Extract ActionConfig `yaml:"extract"`
+	Enabled bool                `yaml:"enabled"`
+	APIKey  string              `yaml:"api_key"`
+	Search  TavilySearchConfig  `yaml:"search"`
+	Extract TavilyExtractConfig `yaml:"extract"`
+}
+
+type TavilySearchConfig struct {
+	ActionConfig      `yaml:",inline"`
+	SearchDepth       string `yaml:"search_depth"`
+	AutoParameters    bool   `yaml:"auto_parameters"`
+	Topic             string `yaml:"topic"`
+	IncludeRawContent bool   `yaml:"include_raw_content"`
+	IncludeUsage      bool   `yaml:"include_usage"`
+}
+
+func (p TavilySearchConfig) Validate() error {
+	if !oneOf(p.SearchDepth, "basic", "advanced", "fast", "ultra-fast") {
+		return fmt.Errorf("search_depth is invalid")
+	}
+	if !oneOf(p.Topic, "general", "news", "finance") {
+		return fmt.Errorf("topic is invalid")
+	}
+	return p.ActionConfig.Validate()
+}
+
+type TavilyExtractConfig struct {
+	ActionConfig `yaml:",inline"`
+	ExtractDepth string `yaml:"extract_depth"`
+	Format       string `yaml:"format"`
+	IncludeUsage bool   `yaml:"include_usage"`
+}
+
+func (p TavilyExtractConfig) Validate() error {
+	if !oneOf(p.ExtractDepth, "basic", "advanced") {
+		return fmt.Errorf("extract_depth is invalid")
+	}
+	if !oneOf(p.Format, "markdown", "text") {
+		return fmt.Errorf("format is invalid")
+	}
+	if p.Timeout.Std() > 60*time.Second {
+		return fmt.Errorf("timeout must not exceed 60s")
+	}
+	return p.ActionConfig.Validate()
 }
 
 // FirecrawlConfig reserves independent settings for its future Search and Scrape clients.
@@ -292,8 +330,19 @@ func DefaultTinyFishConfig() TinyFishConfig {
 func DefaultTavilyConfig() TavilyConfig {
 	return TavilyConfig{
 		Enabled: true,
-		Search:  DefaultActionConfig(15*time.Second, 2, 3, 5*time.Minute),
-		Extract: DefaultActionConfig(20*time.Second, 1, 2, 5*time.Minute),
+		Search: TavilySearchConfig{
+			ActionConfig:      DefaultActionConfig(15*time.Second, 2, 3, 5*time.Minute),
+			SearchDepth:       "basic",
+			Topic:             "general",
+			IncludeRawContent: false,
+			IncludeUsage:      true,
+		},
+		Extract: TavilyExtractConfig{
+			ActionConfig: DefaultActionConfig(20*time.Second, 1, 2, 5*time.Minute),
+			ExtractDepth: "basic",
+			Format:       "markdown",
+			IncludeUsage: true,
+		},
 	}
 }
 func DefaultFirecrawlConfig() FirecrawlConfig {
@@ -311,7 +360,8 @@ func (c ProvidersConfig) Validate(maxDocumentChars int) map[string]string {
 	c.validateMarkdownNew(issues)
 	c.validateKeyAction(issues, "tinyfish", ACTION_SEARCH, c.TinyFish.Enabled, c.TinyFish.APIKey, c.TinyFish.Search.Enabled, c.TinyFish.Search.Validate())
 	c.validateKeyAction(issues, "tinyfish", ACTION_FETCH, c.TinyFish.Enabled, c.TinyFish.APIKey, c.TinyFish.Fetch.Enabled, c.TinyFish.Fetch.Validate())
-	c.validateKeyActions(issues, "tavily", c.Tavily.Enabled, c.Tavily.APIKey, map[string]ActionConfig{ACTION_SEARCH: c.Tavily.Search, ACTION_EXTRACT: c.Tavily.Extract})
+	c.validateKeyAction(issues, "tavily", ACTION_SEARCH, c.Tavily.Enabled, c.Tavily.APIKey, c.Tavily.Search.Enabled, c.Tavily.Search.Validate())
+	c.validateKeyAction(issues, "tavily", ACTION_EXTRACT, c.Tavily.Enabled, c.Tavily.APIKey, c.Tavily.Extract.Enabled, c.Tavily.Extract.Validate())
 	c.validateKeyActions(issues, "firecrawl", c.Firecrawl.Enabled, c.Firecrawl.APIKey, map[string]ActionConfig{ACTION_SEARCH: c.Firecrawl.Search, ACTION_SCRAPE: c.Firecrawl.Scrape})
 	return issues
 }
