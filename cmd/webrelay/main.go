@@ -55,7 +55,11 @@ func main() {
 	defer cancelCleanup()
 	go cacheStore.StartCleanupWorker(cleanupContext, runtimeConfig.Cache.CleanupInterval.Std(), logger)
 
-	server := app.NewServer(runtimeConfig, logger)
+	server, err := app.NewServer(runtimeConfig, cacheStore, logger)
+	if err != nil {
+		logger.Error("Create HTTP server", zap.Error(err))
+		os.Exit(1)
+	}
 	logger.Info("Starting HTTP server", zap.String("listen", server.Addr))
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		logger.Error("HTTP server stopped unexpectedly", zap.Error(err))

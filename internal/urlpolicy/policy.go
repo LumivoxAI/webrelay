@@ -85,7 +85,7 @@ func New(resolver Resolver) Policy {
 
 // Normalize removes fragments and known tracking parameters while rejecting malformed or unsafe URL syntax.
 func (p Policy) Normalize(rawURL string) (*url.URL, error) {
-	parsedURL, err := url.ParseRequestURI(rawURL)
+	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, fmt.Errorf("%w: malformed syntax", ErrInvalidURL)
 	}
