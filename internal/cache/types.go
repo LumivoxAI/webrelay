@@ -18,14 +18,15 @@ type SearchEntry struct {
 
 // SearchResult is one result belonging to a cached search entry.
 type SearchResult struct {
-	ID            string
-	SearchID      string
-	Rank          int
-	URL           string
-	NormalizedURL string
-	Title         string
-	Snippet       string
-	PublishedAt   *time.Time
+	ID             string
+	SearchID       string
+	Rank           int
+	URL            string
+	NormalizedURL  string
+	Title          string
+	Snippet        string
+	PublishedAt    *time.Time
+	SearchProvider string
 }
 
 // Document is content cached by its normalized public URL.

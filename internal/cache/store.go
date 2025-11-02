@@ -168,15 +168,29 @@ func (s *Store) PutSearch(ctx context.Context, entry SearchEntry) (*SearchEntry,
 
 // GetResult returns a result only while its parent search entry is valid.
 func (s *Store) GetResult(ctx context.Context, id string) (*SearchResult, error) {
-	row := s.db.QueryRowContext(ctx, `SELECT r.id, r.search_id, r.rank, r.url, r.normalized_url, r.title, r.snippet, r.published_at
+	row := s.db.QueryRowContext(ctx, `SELECT r.id, r.search_id, r.rank, r.url, r.normalized_url, r.title, r.snippet, r.published_at, s.provider
 		FROM search_results r JOIN search_entries s ON s.id = r.search_id
 		WHERE r.id = ? AND s.expires_at > ?`, id, unixNanos(s.now()))
-	result, err := scanSearchResult(row)
+	result, err := scanSearchResultWithProvider(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get search result: %w", err)
+	}
+	return result, nil
+}
+
+func scanSearchResultWithProvider(row rowScanner) (*SearchResult, error) {
+	result := &SearchResult{}
+	var publishedAt sql.NullInt64
+	err := row.Scan(&result.ID, &result.SearchID, &result.Rank, &result.URL, &result.NormalizedURL, &result.Title, &result.Snippet, &publishedAt, &result.SearchProvider)
+	if err != nil {
+		return nil, err
+	}
+	if publishedAt.Valid {
+		value := time.Unix(0, publishedAt.Int64).UTC()
+		result.PublishedAt = &value
 	}
 	return result, nil
 }
