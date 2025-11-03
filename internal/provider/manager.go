@@ -78,17 +78,27 @@ func (m *Manager) State(key Key) State {
 
 // Route invokes providers in order until one operation succeeds.
 func (m *Manager) Route(ctx context.Context, action Action, providers []Name, operation Operation) (Result, error) {
-	attempts := make([]Attempt, 0, len(providers))
-	var fallbackFrom *Key
+	keys := make([]Key, 0, len(providers))
 	for _, name := range providers {
-		key := Key{Provider: name, Action: action}
+		keys = append(keys, Key{Provider: name, Action: action})
+	}
+	return m.RouteKeys(ctx, keys, func(ctx context.Context, key Key) error {
+		return operation(ctx, key.Provider)
+	})
+}
+
+// RouteKeys invokes provider actions in order until one operation succeeds.
+func (m *Manager) RouteKeys(ctx context.Context, keys []Key, operation func(context.Context, Key) error) (Result, error) {
+	attempts := make([]Attempt, 0, len(keys))
+	var fallbackFrom *Key
+	for _, key := range keys {
 		entry, state := m.get(key)
 		if entry == nil {
-			attempts = append(attempts, Attempt{Provider: name, Reason: REASON_MISCONFIGURED})
+			attempts = append(attempts, Attempt{Provider: key.Provider, Reason: REASON_MISCONFIGURED})
 			continue
 		}
 		if state != STATE_AVAILABLE {
-			attempts = append(attempts, Attempt{Provider: name, Reason: entry.lastReason})
+			attempts = append(attempts, Attempt{Provider: key.Provider, Reason: entry.lastReason})
 			continue
 		}
 		if fallbackFrom != nil {
@@ -96,11 +106,13 @@ func (m *Manager) Route(ctx context.Context, action Action, providers []Name, op
 			fallbackFrom = nil
 		}
 
-		failure := m.call(ctx, key, entry, operation)
+		failure := m.call(ctx, key, entry, func(ctx context.Context, _ Name) error {
+			return operation(ctx, key)
+		})
 		if failure == nil {
-			return Result{Provider: name, Attempts: attempts}, nil
+			return Result{Provider: key.Provider, Attempts: attempts}, nil
 		}
-		attempts = append(attempts, Attempt{Provider: name, Reason: failure.Reason})
+		attempts = append(attempts, Attempt{Provider: key.Provider, Reason: failure.Reason})
 		if failure.Terminal {
 			return Result{}, &RouteError{Attempts: attempts}
 		}

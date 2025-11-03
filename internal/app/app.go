@@ -12,13 +12,13 @@ import (
 
 // NewServer creates the HTTP server and its configured business workflows.
 func NewServer(config config.Config, store *cache.Store, logger *zap.Logger) (*http.Server, error) {
-	workflow, err := NewSearchWorkflow(config, store, logger)
+	searchWorkflow, contentWorkflow, err := NewWorkflows(config, store, logger)
 	if err != nil {
 		return nil, err
 	}
 	return &http.Server{
 		Addr:              config.Server.Listen,
-		Handler:           httpapi.NewHandler(logger, httpapi.Dependencies{Search: workflow, MaxRequestBodyBytes: int64(config.Server.MaxRequestBodyBytes)}),
+		Handler:           httpapi.NewHandler(logger, httpapi.Dependencies{Search: searchWorkflow, Content: contentWorkflow, MaxRequestBodyBytes: int64(config.Server.MaxRequestBodyBytes)}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       config.Server.RequestTimeout.Std(),
 		WriteTimeout:      config.Server.RequestTimeout.Std(),
