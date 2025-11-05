@@ -2,6 +2,13 @@ package httpapi
 
 import "time"
 
+// Readiness is the public response body for GET /health/ready.
+type Readiness struct {
+	Status           string            `json:"status"`
+	SearchProviders  map[string]string `json:"search_providers"`
+	ContentProviders map[string]string `json:"content_providers"`
+}
+
 // SearchRequest is the public request body for POST /v1/search.
 type SearchRequest struct {
 	Query           string     `json:"query"`

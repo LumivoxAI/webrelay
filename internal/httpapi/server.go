@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -19,7 +20,13 @@ import (
 type Dependencies struct {
 	Search              *search.Service
 	Content             *content.Service
+	Health              HealthChecker
 	MaxRequestBodyBytes int64
+}
+
+// HealthChecker provides readiness without making an upstream provider request.
+type HealthChecker interface {
+	Ready(context.Context) (Readiness, bool)
 }
 
 // NewHandler constructs the public HTTP pipeline.
@@ -32,6 +39,8 @@ func NewHandler(logger *zap.Logger, dependencies ...Dependencies) http.Handler {
 		}
 	}
 	mux := http.NewServeMux()
+	mux.HandleFunc("/health/live", liveHandler)
+	mux.HandleFunc("/health/ready", readyHandler(settings.Health))
 	if settings.Search != nil {
 		mux.HandleFunc("/v1/search", searchHandler(settings))
 	}
@@ -44,6 +53,39 @@ func NewHandler(logger *zap.Logger, dependencies ...Dependencies) http.Handler {
 		WriteError(w, r, CODE_DOCUMENT_NOT_FOUND, "endpoint not found")
 	})
 	return RequestID(Logging(logger, mux))
+}
+
+func liveHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		WriteError(w, r, CODE_INVALID_REQUEST, "method must be GET")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func readyHandler(checker HealthChecker) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			WriteError(w, r, CODE_INVALID_REQUEST, "method must be GET")
+			return
+		}
+		if checker == nil {
+			writeJSON(w, http.StatusServiceUnavailable, Readiness{Status: "not_ready", SearchProviders: map[string]string{}, ContentProviders: map[string]string{}})
+			return
+		}
+		response, ready := checker.Ready(r.Context())
+		if !ready {
+			writeJSON(w, http.StatusServiceUnavailable, response)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
+	}
+}
+
+func writeJSON(w http.ResponseWriter, status int, value any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(value)
 }
 
 func fetchHandler(dependencies Dependencies) http.HandlerFunc {

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,61 @@ import (
 
 type HTTPAPISuite struct {
 	suite.Suite
+}
+
+type fakeHealthChecker struct {
+	response Readiness
+	ready    bool
+	calls    int
+}
+
+func (c *fakeHealthChecker) Ready(context.Context) (Readiness, bool) {
+	c.calls++
+	return c.response, c.ready
+}
+
+func (s *HTTPAPISuite) TestLiveDoesNotInvokeReadiness() {
+	checker := &fakeHealthChecker{}
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/health/live", nil)
+
+	NewHandler(zap.NewNop(), Dependencies{Health: checker}).ServeHTTP(response, request)
+
+	s.Equal(http.StatusOK, response.Code)
+	s.Equal(`{"status":"ok"}`, strings.TrimSpace(response.Body.String()))
+	s.Zero(checker.calls)
+}
+
+func (s *HTTPAPISuite) TestReadyReturnsProviderStates() {
+	checker := &fakeHealthChecker{
+		response: Readiness{
+			Status:           "ready",
+			SearchProviders:  map[string]string{"exa": "available"},
+			ContentProviders: map[string]string{"markdown_new": "cooldown", "exa": "available"},
+		},
+		ready: true,
+	}
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/health/ready", nil)
+
+	NewHandler(zap.NewNop(), Dependencies{Health: checker}).ServeHTTP(response, request)
+
+	s.Equal(http.StatusOK, response.Code)
+	var body Readiness
+	s.Require().NoError(json.Unmarshal(response.Body.Bytes(), &body))
+	s.Equal(checker.response, body)
+	s.Equal(1, checker.calls)
+}
+
+func (s *HTTPAPISuite) TestReadyReturnsServiceUnavailable() {
+	checker := &fakeHealthChecker{response: Readiness{Status: "not_ready", SearchProviders: map[string]string{}, ContentProviders: map[string]string{}}, ready: false}
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/health/ready", nil)
+
+	NewHandler(zap.NewNop(), Dependencies{Health: checker}).ServeHTTP(response, request)
+
+	s.Equal(http.StatusServiceUnavailable, response.Code)
+	s.Contains(response.Body.String(), `"status":"not_ready"`)
 }
 
 func (s *HTTPAPISuite) TestUsesSafeClientRequestIDInErrorResponse() {
