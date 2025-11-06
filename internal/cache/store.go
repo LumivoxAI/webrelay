@@ -52,6 +52,11 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
+// Ping verifies that the SQLite database is reachable.
+func (s *Store) Ping(ctx context.Context) error {
+	return s.db.PingContext(ctx)
+}
+
 func (s *Store) migrate(ctx context.Context) error {
 	statements := []string{
 		"PRAGMA foreign_keys = ON",

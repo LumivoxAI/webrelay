@@ -21,40 +21,40 @@ import (
 
 // NewSearchWorkflow wires all configured search adapters into the shared workflow.
 func NewSearchWorkflow(cfg config.Config, store *cache.Store, logger *zap.Logger) (*search.Service, error) {
-	workflow, _, err := NewWorkflows(cfg, store, logger)
+	workflow, _, _, err := NewWorkflows(cfg, store, logger)
 	return workflow, err
 }
 
 // NewWorkflows wires search and content adapters to one shared provider manager.
-func NewWorkflows(cfg config.Config, store *cache.Store, logger *zap.Logger) (*search.Service, *content.Service, error) {
+func NewWorkflows(cfg config.Config, store *cache.Store, logger *zap.Logger) (*search.Service, *content.Service, *provider.Manager, error) {
 	manager := provider.NewConfiguredManager(cfg, logger)
 	httpClients, err := provider.NewConfiguredClients(cfg)
 	if err != nil {
-		return nil, nil, fmt.Errorf("create provider HTTP clients: %w", err)
+		return nil, nil, nil, fmt.Errorf("create provider HTTP clients: %w", err)
 	}
 	exaClient, err := exa.New(cfg.Providers.Exa, httpClients[provider.Key{Provider: provider.EXA, Action: provider.SEARCH}], logger)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	braveClient, err := brave.New(cfg.Providers.Brave, httpClients[provider.Key{Provider: provider.BRAVE, Action: provider.SEARCH}], logger)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	tinyFishClient, err := tinyfish.New(cfg.Providers.TinyFish, httpClients[provider.Key{Provider: provider.TINYFISH, Action: provider.SEARCH}], httpClients[provider.Key{Provider: provider.TINYFISH, Action: provider.FETCH}], logger)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	tavilyClient, err := tavily.New(cfg.Providers.Tavily, httpClients[provider.Key{Provider: provider.TAVILY, Action: provider.SEARCH}], httpClients[provider.Key{Provider: provider.TAVILY, Action: provider.EXTRACT}], manager.Metrics(), logger)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	firecrawlClient, err := firecrawl.New(cfg.Providers.Firecrawl, httpClients[provider.Key{Provider: provider.FIRECRAWL, Action: provider.SEARCH}], httpClients[provider.Key{Provider: provider.FIRECRAWL, Action: provider.SCRAPE}], manager.Metrics(), logger)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	markdownClient, err := markdownnew.New(cfg.Providers.MarkdownNew, httpClients[provider.Key{Provider: provider.MARKDOWN_NEW, Action: provider.FETCH}], logger)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	clients := map[provider.Name]search.Client{
 		provider.EXA:       search.ClientFunc(searchExa(exaClient)),
@@ -65,7 +65,7 @@ func NewWorkflows(cfg config.Config, store *cache.Store, logger *zap.Logger) (*s
 	}
 	searchWorkflow, err := search.New(cfg, store, manager, clients, logger)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	contentClients := map[provider.Key]content.Client{
 		{Provider: provider.TINYFISH, Action: provider.FETCH}: content.ClientFunc(func(ctx context.Context, rawURL string, forceRefresh bool) (content.ProviderResponse, error) {
@@ -91,9 +91,9 @@ func NewWorkflows(cfg config.Config, store *cache.Store, logger *zap.Logger) (*s
 	}
 	contentWorkflow, err := content.New(cfg, store, manager, contentClients, urlpolicy.New(nil), logger)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return searchWorkflow, contentWorkflow, nil
+	return searchWorkflow, contentWorkflow, manager, nil
 }
 
 func searchExa(client *exa.Client) func(context.Context, search.Request) (search.Response, error) {

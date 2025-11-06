@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/LumivoxAI/webrelay/internal/app"
 	"github.com/LumivoxAI/webrelay/internal/config"
@@ -50,19 +52,50 @@ func main() {
 		_ = logger.Sync()
 		os.Exit(1)
 	}
-	defer func() { _ = cacheStore.Close() }()
 	cleanupContext, cancelCleanup := context.WithCancel(context.Background())
-	defer cancelCleanup()
-	go cacheStore.StartCleanupWorker(cleanupContext, runtimeConfig.Cache.CleanupInterval.Std(), logger)
+	cleanupDone := make(chan struct{})
+	go func() {
+		defer close(cleanupDone)
+		cacheStore.StartCleanupWorker(cleanupContext, runtimeConfig.Cache.CleanupInterval.Std(), logger)
+	}()
 
 	server, err := app.NewServer(runtimeConfig, cacheStore, logger)
 	if err != nil {
 		logger.Error("Create HTTP server", zap.Error(err))
+		cancelCleanup()
+		<-cleanupDone
+		_ = cacheStore.Close()
 		os.Exit(1)
 	}
+	if !app.IsLoopbackListenAddress(server.Addr) {
+		logger.Warn("HTTP API is exposed beyond loopback without authentication", zap.String("listen", server.Addr))
+	}
 	logger.Info("Starting HTTP server", zap.String("listen", server.Addr))
-	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		logger.Error("HTTP server stopped unexpectedly", zap.Error(err))
+	serverErrors := make(chan error, 1)
+	go func() { serverErrors <- server.ListenAndServe() }()
+
+	signalContext, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
+	unexpectedStop := false
+	select {
+	case <-signalContext.Done():
+		logger.Info("Shutdown signal received")
+	case err := <-serverErrors:
+		if !errors.Is(err, http.ErrServerClosed) {
+			unexpectedStop = true
+			logger.Error("HTTP server stopped unexpectedly", zap.Error(err))
+		}
+	}
+
+	shutdownContext, cancelShutdown := context.WithTimeout(context.Background(), runtimeConfig.Server.ShutdownTimeout.Std())
+	defer cancelShutdown()
+	if err := app.Shutdown(shutdownContext, server, cancelCleanup, cleanupDone, cacheStore); err != nil {
+		logger.Error("Graceful shutdown failed", zap.Error(err))
+		_ = logger.Sync()
+		os.Exit(1)
+	}
+	if unexpectedStop {
+		_ = logger.Sync()
 		os.Exit(1)
 	}
 }
