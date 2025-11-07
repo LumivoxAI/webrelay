@@ -45,3 +45,22 @@ func (c ServerConfig) Validate() error {
 	}
 	return nil
 }
+
+// WithListenOverrides returns the server configuration with optional CLI address parts applied.
+func (c ServerConfig) WithListenOverrides(host *string, port *uint16) (ServerConfig, error) {
+	configuredHost, configuredPort, err := net.SplitHostPort(c.Listen)
+	if err != nil {
+		return ServerConfig{}, fmt.Errorf("split server.listen: %w", err)
+	}
+	if host != nil {
+		configuredHost = *host
+	}
+	if port != nil {
+		configuredPort = strconv.Itoa(int(*port))
+	}
+	c.Listen = net.JoinHostPort(configuredHost, configuredPort)
+	if err := c.Validate(); err != nil {
+		return ServerConfig{}, err
+	}
+	return c, nil
+}
