@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,15 +16,34 @@ import (
 )
 
 type cli struct {
-	ConfigPath string `name:"config" short:"c" help:"Path to YAML configuration." type:"path"`
+	ConfigPath string        `name:"config" short:"c" help:"Path to YAML configuration." type:"path"`
+	Host       *string       `help:"Override the server host from configuration."`
+	Port       *uint16       `help:"Override the server port from configuration."`
+	Serve      struct{}      `cmd:"" default:"1" hidden:""`
+	Export     exportCommand `cmd:"" help:"Export commands."`
+}
+
+type exportCommand struct {
+	Config exportConfigCommand `cmd:"" help:"Write the complete default configuration."`
+}
+
+type exportConfigCommand struct {
+	Output string `name:"output" short:"o" help:"Write to a new file instead of stdout." type:"path"`
 }
 
 func main() {
 	var cli cli
-	kong.Parse(&cli,
+	kongContext := kong.Parse(&cli,
 		kong.Name("webrelay"),
 		kong.Description("Web Retrieval Gateway."),
 	)
+	if kongContext.Command() == "export config" {
+		if err := exportDefaultConfig(cli.Export.Config.Output); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	bootstrapLogger, err := zap.NewProduction()
 	if err != nil {
@@ -34,6 +54,12 @@ func main() {
 	runtimeConfig, err := config.Load(cli.ConfigPath)
 	if err != nil {
 		bootstrapLogger.Error("Configuration validation failed", zap.Error(err))
+		_ = bootstrapLogger.Sync()
+		os.Exit(1)
+	}
+	runtimeConfig.Server, err = runtimeConfig.Server.WithListenOverrides(cli.Host, cli.Port)
+	if err != nil {
+		bootstrapLogger.Error("Server address validation failed", zap.Error(err))
 		_ = bootstrapLogger.Sync()
 		os.Exit(1)
 	}
@@ -98,4 +124,24 @@ func main() {
 		_ = logger.Sync()
 		os.Exit(1)
 	}
+}
+
+func exportDefaultConfig(outputPath string) error {
+	document, err := config.ExportDefaultYAML()
+	if err != nil {
+		return err
+	}
+	if outputPath == "" {
+		_, err := os.Stdout.Write(document)
+		return err
+	}
+	file, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return fmt.Errorf("create configuration export: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+	if _, err := file.Write(document); err != nil {
+		return fmt.Errorf("write configuration export: %w", err)
+	}
+	return nil
 }
