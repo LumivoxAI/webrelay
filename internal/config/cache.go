@@ -47,6 +47,9 @@ func (c CacheConfig) Validate() error {
 	if err := validatePositive("cache.document_ttl", c.DocumentTTL.Std()); err != nil {
 		return err
 	}
+	if c.DocumentTTL.Std() < c.SearchTTL.Std() {
+		return fmt.Errorf("cache.document_ttl must be greater than or equal to cache.search_ttl")
+	}
 	if err := validatePositive("cache.cleanup_interval", c.CleanupInterval.Std()); err != nil {
 		return err
 	}

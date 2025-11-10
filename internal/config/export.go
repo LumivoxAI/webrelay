@@ -107,7 +107,7 @@ var configFieldComments = map[string]string{
 	"type":                   "Cache implementation; only sqlite is supported.",
 	"path":                   "SQLite database path, resolved from the current XDG environment.",
 	"search_ttl":             "Lifetime of cached search responses.",
-	"document_ttl":           "Lifetime of cached document content.",
+	"document_ttl":           "Lifetime of a document ID, its URL reference, and cached content.",
 	"cleanup_interval":       "Interval for expired-cache cleanup and size eviction.",
 	"max_size_mb":            "Maximum cache size or single log file size in megabytes.",
 	"logging":                "Structured logging output settings.",

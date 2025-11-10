@@ -95,6 +95,17 @@ func (s *ConfigSuite) TestRejectsInvalidRetryBackoff() {
 	s.EqualError(err, "max_backoff must be no less than initial_backoff")
 }
 
+func (s *ConfigSuite) TestRejectsDocumentTTLBelowSearchTTL() {
+	cache := DefaultCacheConfig()
+	cache.Path = ":memory:"
+	cache.SearchTTL = Duration(2 * time.Hour)
+	cache.DocumentTTL = Duration(time.Hour)
+
+	err := cache.Validate()
+
+	s.EqualError(err, "cache.document_ttl must be greater than or equal to cache.search_ttl")
+}
+
 func (s *ConfigSuite) TestMarkdownNewContentThresholdDefaultsAndValidates() {
 	markdownNew := DefaultMarkdownNewConfig()
 
